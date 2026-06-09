@@ -104,7 +104,10 @@ function LoginInner() {
           <div className="field">
             <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{t('login_password')}</span>
-              <span style={{ fontSize: 11, color: 'var(--green2)', cursor: 'pointer', fontWeight: 500 }}>
+              <span
+                style={{ fontSize: 11, color: 'var(--green2)', cursor: 'pointer', fontWeight: 500 }}
+                onClick={() => nav('/forgot-password')}
+              >
                 {t('login_forgot')}
               </span>
             </label>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useLang, LANGUAGES, CURRENCIES } from '../../context/LangContext';
@@ -13,14 +13,22 @@ import {
   AlertTriangle, XCircle, CreditCard, Globe, DollarSign,
 } from 'lucide-react';
 
-const PAYPAL_URL = 'https://paypal.me/TU_USUARIO';
-const STRIPE_URL  = 'https://buy.stripe.com/TU_LINK';
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 export default function Perfil() {
   const { user, logout, updateUser } = useAuth();
   const { debts, services } = useFinance();
   const { t, fmt, idioma: currentIdioma, moneda: currentMoneda } = useLang();
   const nav = useNavigate();
+  const loc = useLocation();
   const push = usePushNotifications();
   const biometric = useBiometric();
 
@@ -32,6 +40,8 @@ export default function Perfil() {
   });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [donated, setDonated] = useState(() => new URLSearchParams(loc.search).get('donated') === 'true');
+  const [stripeLoading, setStripeLoading] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioRegistered, setBioRegistered] = useState(false);
   const [bioLoading, setBioLoading] = useState(false);
@@ -95,6 +105,18 @@ export default function Perfil() {
 
   const handleLogout = () => { logout(); nav('/'); };
 
+  const donar = async (amount) => {
+    setStripeLoading(true);
+    try {
+      const { data } = await api.post('/stripe/checkout', { amount });
+      window.location.href = data.url;
+    } catch {
+      // silencioso — el usuario sigue en la página
+    } finally {
+      setStripeLoading(false);
+    }
+  };
+
   return (
     <div className="view">
       <div className="topbar">
@@ -113,7 +135,7 @@ export default function Perfil() {
             <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>{t('perfil_lib_desc').split(' ')[0]}</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>{t('perfil_lib_desc')}</div>
             <div className="lib-bubble" style={{ textAlign: 'left' }}>
-              <span dangerouslySetInnerHTML={{ __html: `"${t('perfil_lib_bubble', { name: nombre, n: diasActivo })} ${maxMeses > 0 ? t('perfil_lib_debts', { n: maxMeses }) : t('perfil_lib_free')}"` }} />
+              <span dangerouslySetInnerHTML={{ __html: `"${t('perfil_lib_bubble', { name: escHtml(nombre), n: diasActivo })} ${maxMeses > 0 ? t('perfil_lib_debts', { n: maxMeses }) : t('perfil_lib_free')}"` }} />
             </div>
           </div>
 
@@ -164,17 +186,32 @@ export default function Perfil() {
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.65 }}>
               {t('perfil_support_desc')}
             </p>
+            {donated && (
+              <div className="alert alert-g" style={{ marginBottom: 4 }}>
+                <span className="alert-ico"><CheckCircle2 size={16} /></span>
+                <div>¡Gracias por apoyar FinLibre! 🐊💚</div>
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <a href={PAYPAL_URL} target="_blank" rel="noopener noreferrer" className="btn btn-p"
-                style={{ width: '100%', justifyContent: 'center', padding: 14, borderRadius: 14, fontSize: 14, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 20px rgba(29,158,117,.3)' }}>
-                <Heart size={16} /> {t('perfil_paypal')}
-              </a>
-              <a href={STRIPE_URL} target="_blank" rel="noopener noreferrer" className="btn btn-o"
-                style={{ width: '100%', justifyContent: 'center', padding: 14, borderRadius: 14, fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
-                <CreditCard size={16} /> {t('perfil_stripe')}
-              </a>
+              {/* Stripe — montos de donación */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[2, 5, 10].map(amt => (
+                  <button
+                    key={amt}
+                    onClick={() => donar(amt)}
+                    disabled={stripeLoading}
+                    className="btn btn-o"
+                    style={{ flex: 1, justifyContent: 'center', padding: '10px 4px', borderRadius: 12, fontSize: 13, fontWeight: 700, opacity: stripeLoading ? .6 : 1 }}
+                  >
+                    <CreditCard size={13} /> ${amt}
+                  </button>
+                ))}
+              </div>
+              <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text4)', marginTop: -2 }}>
+                {stripeLoading ? 'Abriendo Stripe...' : t('perfil_stripe')}
+              </div>
             </div>
-            <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: 'var(--text4)' }}>
+            <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--text4)' }}>
               {t('perfil_donate_note')}
             </div>
           </div>

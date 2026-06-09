@@ -7,6 +7,8 @@ const Goal = require('./Goal');
 const PushSubscription = require('./PushSubscription');
 const WebAuthnCredential = require('./WebAuthnCredential');
 const RefreshToken = require('./RefreshToken');
+const PasswordReset = require('./PasswordReset');
+const LoginHistory = require('./LoginHistory');
 
 User.hasMany(Service, { foreignKey: 'user_id', as: 'services', onDelete: 'CASCADE' });
 Service.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
@@ -29,4 +31,10 @@ WebAuthnCredential.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 User.hasMany(RefreshToken, { foreignKey: 'user_id', as: 'refreshTokens', onDelete: 'CASCADE' });
 RefreshToken.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-module.exports = { sequelize, User, Service, Debt, Savings, Goal, PushSubscription, WebAuthnCredential, RefreshToken };
+User.hasMany(PasswordReset, { foreignKey: 'user_id', as: 'passwordResets', onDelete: 'CASCADE' });
+PasswordReset.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+User.hasMany(LoginHistory, { foreignKey: 'user_id', as: 'loginHistory', onDelete: 'CASCADE' });
+LoginHistory.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+module.exports = { sequelize, User, Service, Debt, Savings, Goal, PushSubscription, WebAuthnCredential, RefreshToken, PasswordReset, LoginHistory };

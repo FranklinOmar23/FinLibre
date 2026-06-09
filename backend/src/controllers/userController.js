@@ -9,7 +9,8 @@ exports.getProfile = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
     res.json({ user });
   } catch (err) {
-    res.status(500).json({ message: 'Error', error: err.message });
+    console.error('[users.getProfile]', err.message);
+    res.status(500).json({ message: 'Error interno' });
   }
 };
 
@@ -19,11 +20,23 @@ exports.updateProfile = async (req, res) => {
     const user = await User.findByPk(req.userId);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-    if (nombre) user.nombre = nombre;
-    if (ingreso_mensual !== undefined) user.ingreso_mensual = ingreso_mensual;
-    if (password) user.password = await bcrypt.hash(password, 12);
-    if (moneda) user.moneda = moneda;
-    if (idioma) user.idioma = idioma;
+    if (nombre !== undefined) {
+      if (typeof nombre !== 'string' || nombre.trim().length < 2 || nombre.length > 100)
+        return res.status(400).json({ message: 'Nombre inválido' });
+      user.nombre = nombre.trim();
+    }
+    if (ingreso_mensual !== undefined) {
+      const n = Number(ingreso_mensual);
+      if (isNaN(n) || n < 0) return res.status(400).json({ message: 'Ingreso inválido' });
+      user.ingreso_mensual = n;
+    }
+    if (password !== undefined) {
+      if (typeof password !== 'string' || password.length < 8 || password.length > 128)
+        return res.status(400).json({ message: 'La contraseña debe tener entre 8 y 128 caracteres' });
+      user.password = await bcrypt.hash(password, 12);
+    }
+    if (moneda !== undefined) user.moneda = moneda;
+    if (idioma !== undefined) user.idioma = idioma;
 
     await user.save();
     res.json({
@@ -34,6 +47,7 @@ exports.updateProfile = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Error al actualizar', error: err.message });
+    console.error('[users.updateProfile]', err.message);
+    res.status(500).json({ message: 'Error al actualizar' });
   }
 };

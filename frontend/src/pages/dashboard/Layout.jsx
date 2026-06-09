@@ -3,6 +3,7 @@ import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useFinance } from '../../context/FinanceContext';
 import { useLang } from '../../context/LangContext';
 import { LibSm } from '../../components/LibSVG';
+import ChatBot from '../../components/ChatBot';
 import { Home, Receipt, CreditCard, PiggyBank, Compass, UserCircle } from 'lucide-react';
 
 export default function Layout() {
@@ -53,6 +54,8 @@ export default function Layout() {
       <main className="main">
         <Outlet />
       </main>
+
+      <ChatBot />
 
       <nav className="mob-nav">
         {NAV.map((item) => (

@@ -1,46 +1,94 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const { sequelize } = require('./models');
 const { startReminderJob } = require('./jobs/reminders');
 
-const authRoutes     = require('./routes/auth');
-const userRoutes     = require('./routes/users');
-const serviceRoutes  = require('./routes/services');
-const debtRoutes     = require('./routes/debts');
-const savingsRoutes  = require('./routes/savings');
-const goalRoutes     = require('./routes/goals');
-const pushRoutes     = require('./routes/push');
-const webauthnRoutes = require('./routes/webauthn');
+const authRoutes         = require('./routes/auth');
+const userRoutes         = require('./routes/users');
+const serviceRoutes      = require('./routes/services');
+const debtRoutes         = require('./routes/debts');
+const savingsRoutes      = require('./routes/savings');
+const goalRoutes         = require('./routes/goals');
+const pushRoutes         = require('./routes/push');
+const webauthnRoutes     = require('./routes/webauthn');
+const chatRoutes         = require('./routes/chat');
+const stripeRoutes       = require('./routes/stripe');
+const stripeWebhook      = require('./routes/stripeWebhook');
 
 const app = express();
 
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true, // necesario para que las cookies httpOnly viajen
+// ── Security headers ─────────────────────────────────────────────────────────
+app.use(helmet({
+  crossOriginEmbedderPolicy: false, // needed for PWA assets
 }));
-app.use(express.json());
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map(s => s.trim());
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow same-origin (no origin header) and listed origins
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+// ── Stripe webhook — DEBE ir antes de express.json() para recibir raw body ───
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+
+// ── Body parsing (explicit size limit to prevent payload DoS) ────────────────
+app.use(express.json({ limit: '50kb' }));
 app.use(cookieParser());
 
-// Rutas
-app.use('/api/auth',     authRoutes);
-app.use('/api/users',    userRoutes);
-app.use('/api/services', serviceRoutes);
-app.use('/api/debts',    debtRoutes);
-app.use('/api/savings',  savingsRoutes);
-app.use('/api/goals',    goalRoutes);
-app.use('/api/push',     pushRoutes);
-app.use('/api/webauthn', webauthnRoutes);
+// ── Rate limiters ─────────────────────────────────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 20,                   // 20 intentos por IP por ventana
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' },
+});
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 min
+  max: 15,             // 15 mensajes por minuto (respetar cuota Gemini)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiados mensajes. Espera un momento.' },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas solicitudes. Intenta más tarde.' },
+});
+
+// ── Rutas ─────────────────────────────────────────────────────────────────────
+app.use('/api/auth',     authLimiter, authRoutes);
+app.use('/api/chat',     chatLimiter, chatRoutes);
+app.use('/api/stripe',   apiLimiter, stripeRoutes);
+app.use('/api/users',    apiLimiter, userRoutes);
+app.use('/api/services', apiLimiter, serviceRoutes);
+app.use('/api/debts',    apiLimiter, debtRoutes);
+app.use('/api/savings',  apiLimiter, savingsRoutes);
+app.use('/api/goals',    apiLimiter, goalRoutes);
+app.use('/api/push',     apiLimiter, pushRoutes);
+app.use('/api/webauthn', apiLimiter, webauthnRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK', app: 'FinLibre API' }));
 app.use((req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 
+// ── Arranque ──────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-
 sequelize
-  .sync({ alter: true })
+  .sync({})
   .then(() => {
     console.log('✅ Base de datos sincronizada');
     startReminderJob();

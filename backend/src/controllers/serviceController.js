@@ -8,26 +8,33 @@ exports.getAll = async (req, res) => {
     });
     res.json({ services });
   } catch (err) {
-    res.status(500).json({ message: 'Error', error: err.message });
+    console.error('[services.getAll]', err.message);
+    res.status(500).json({ message: 'Error interno' });
   }
 };
 
 exports.create = async (req, res) => {
   try {
     const { nombre, monto, categoria, emoji } = req.body;
-    if (!nombre || !monto)
-      return res.status(400).json({ message: 'Nombre y monto son requeridos' });
+
+    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 100)
+      return res.status(400).json({ message: 'Nombre inválido (máximo 100 caracteres)' });
+
+    const montoNum = Number(monto);
+    if (!monto || isNaN(montoNum) || montoNum <= 0 || montoNum > 9_999_999)
+      return res.status(400).json({ message: 'Monto inválido' });
 
     const service = await Service.create({
       user_id: req.userId,
-      nombre,
-      monto,
+      nombre: nombre.trim(),
+      monto: montoNum,
       categoria: categoria || 'Otro',
       emoji: emoji || '📦',
     });
     res.status(201).json({ service });
   } catch (err) {
-    res.status(500).json({ message: 'Error al crear servicio', error: err.message });
+    console.error('[services.create]', err.message);
+    res.status(500).json({ message: 'Error al crear servicio' });
   }
 };
 
@@ -37,15 +44,26 @@ exports.update = async (req, res) => {
     if (!service) return res.status(404).json({ message: 'Servicio no encontrado' });
 
     const { nombre, monto, categoria, emoji } = req.body;
-    if (nombre) service.nombre = nombre;
-    if (monto) service.monto = monto;
+
+    if (nombre !== undefined) {
+      if (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 100)
+        return res.status(400).json({ message: 'Nombre inválido' });
+      service.nombre = nombre.trim();
+    }
+    if (monto !== undefined) {
+      const montoNum = Number(monto);
+      if (isNaN(montoNum) || montoNum <= 0 || montoNum > 9_999_999)
+        return res.status(400).json({ message: 'Monto inválido' });
+      service.monto = montoNum;
+    }
     if (categoria) service.categoria = categoria;
     if (emoji) service.emoji = emoji;
 
     await service.save();
     res.json({ service });
   } catch (err) {
-    res.status(500).json({ message: 'Error al actualizar', error: err.message });
+    console.error('[services.update]', err.message);
+    res.status(500).json({ message: 'Error al actualizar' });
   }
 };
 
@@ -58,6 +76,7 @@ exports.remove = async (req, res) => {
     await service.save();
     res.json({ message: 'Servicio eliminado' });
   } catch (err) {
-    res.status(500).json({ message: 'Error al eliminar', error: err.message });
+    console.error('[services.remove]', err.message);
+    res.status(500).json({ message: 'Error al eliminar' });
   }
 };

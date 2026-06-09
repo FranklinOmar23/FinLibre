@@ -14,38 +14,40 @@ exports.getVapidKey = (req, res) => {
 exports.subscribe = async (req, res) => {
   try {
     const { endpoint, keys } = req.body;
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    if (!endpoint || !keys?.p256dh || !keys?.auth)
       return res.status(400).json({ error: 'Suscripción inválida' });
-    }
 
-    // Upsert: un usuario puede tener varias suscripciones (múltiples dispositivos)
+    if (typeof endpoint !== 'string' || !endpoint.startsWith('https://'))
+      return res.status(400).json({ error: 'Endpoint inválido' });
+
     const [sub] = await PushSubscription.findOrCreate({
       where: { user_id: req.userId, endpoint },
       defaults: { user_id: req.userId, endpoint, p256dh: keys.p256dh, auth: keys.auth },
     });
 
-    // Actualizar keys si ya existía
     if (sub.p256dh !== keys.p256dh) {
       await sub.update({ p256dh: keys.p256dh, auth: keys.auth });
     }
 
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[push.subscribe]', err.message);
+    res.status(500).json({ error: 'Error interno' });
   }
 };
 
 exports.unsubscribe = async (req, res) => {
   try {
     const { endpoint } = req.body;
+    if (!endpoint) return res.status(400).json({ error: 'Endpoint requerido' });
     await PushSubscription.destroy({ where: { user_id: req.userId, endpoint } });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[push.unsubscribe]', err.message);
+    res.status(500).json({ error: 'Error interno' });
   }
 };
 
-// Envía push a todos los dispositivos de un usuario
 async function sendPushToUser(userId, payload) {
   const subs = await PushSubscription.findAll({ where: { user_id: userId } });
   const results = await Promise.allSettled(
@@ -54,7 +56,6 @@ async function sendPushToUser(userId, payload) {
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify(payload)
       ).catch(async err => {
-        // 410 = suscripción expirada, eliminar
         if (err.statusCode === 410) await sub.destroy();
         throw err;
       })
@@ -65,7 +66,6 @@ async function sendPushToUser(userId, payload) {
 
 exports.sendPushToUser = sendPushToUser;
 
-// Test manual desde Perfil
 exports.testPush = async (req, res) => {
   try {
     await sendPushToUser(req.userId, {
@@ -77,6 +77,7 @@ exports.testPush = async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[push.test]', err.message);
+    res.status(500).json({ error: 'Error interno' });
   }
 };

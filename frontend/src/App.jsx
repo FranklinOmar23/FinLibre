@@ -3,10 +3,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { LangProvider } from './context/LangContext';
 
-import Splash    from './pages/auth/Splash';
-import Login     from './pages/auth/Login';
-import Register  from './pages/auth/Register';
-import Onboard   from './pages/auth/Onboard';
+import Splash         from './pages/auth/Splash';
+import Login          from './pages/auth/Login';
+import Register       from './pages/auth/Register';
+import Onboard        from './pages/auth/Onboard';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword  from './pages/auth/ResetPassword';
 import Layout    from './pages/dashboard/Layout';
 import Inicio    from './pages/dashboard/Inicio';
 import Servicios from './pages/dashboard/Servicios';
@@ -37,6 +39,8 @@ function AppRoutes() {
       <Route path="/" element={<PublicRoute><Splash /></PublicRoute>} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password"  element={<ResetPassword />} />
       <Route path="/onboard" element={<PrivateRoute><Onboard /></PrivateRoute>} />
       <Route path="/app" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Inicio />} />
