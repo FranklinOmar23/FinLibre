@@ -2,7 +2,12 @@ const router = require('express').Router();
 const Stripe = require('stripe');
 const auth = require('../middleware/auth');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+// Lazy — evita crash en arranque si la variable aún no está configurada
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY no configurada');
+  return Stripe(key);
+}
 
 const DONATION_AMOUNTS = [2, 5, 10]; // USD — valores permitidos
 
@@ -15,7 +20,7 @@ router.post('/checkout', auth, async (req, res) => {
 
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: 'payment',
       metadata: { userId: String(req.userId) },
       line_items: [

@@ -3,7 +3,11 @@ const Stripe = require('stripe');
 const { User } = require('../models');
 const emailService = require('../services/emailService');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY no configurada');
+  return Stripe(key);
+}
 
 // POST /api/stripe/webhook  — Stripe envía eventos aquí
 // Necesita el body crudo (raw) para verificar la firma
@@ -15,7 +19,7 @@ router.post('/', async (req, res) => {
 
   if (webhookSecret) {
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      event = getStripe().webhooks.constructEvent(req.body, sig, webhookSecret);
     } catch (err) {
       console.error('[stripe.webhook] Firma inválida:', err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
