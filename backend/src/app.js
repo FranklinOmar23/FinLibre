@@ -22,6 +22,9 @@ const stripeWebhook      = require('./routes/stripeWebhook');
 
 const app = express();
 
+// Confiar en el proxy de Hostinger para leer la IP real del cliente
+app.set('trust proxy', 1);
+
 // ── Security headers ─────────────────────────────────────────────────────────
 app.use(helmet({
   crossOriginEmbedderPolicy: false, // needed for PWA assets
@@ -42,7 +45,7 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isProd ? 20 : 500,
+  max: isProd ? 50 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' },
