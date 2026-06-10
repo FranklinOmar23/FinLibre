@@ -1,10 +1,10 @@
 const express = require('express');
-const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const corsMiddleware = require('./middleware/cors');
 const { sequelize } = require('./models');
 const { startReminderJob } = require('./jobs/reminders');
 
@@ -28,15 +28,7 @@ app.use(helmet({
 }));
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map(s => s.trim());
-app.use(cors({
-  origin: (origin, cb) => {
-    // Allow same-origin (no origin header) and listed origins
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-}));
+app.use(corsMiddleware);
 
 // ── Stripe webhook — DEBE ir antes de express.json() para recibir raw body ───
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
