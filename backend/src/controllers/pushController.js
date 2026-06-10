@@ -1,11 +1,15 @@
 const webpush = require('web-push');
 const { PushSubscription } = require('../models');
 
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+if (process.env.VAPID_EMAIL && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+} else {
+  console.warn('[push] VAPID keys not set — push notifications disabled');
+}
 
 exports.getVapidKey = (req, res) => {
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });

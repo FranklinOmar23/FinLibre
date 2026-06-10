@@ -34,6 +34,7 @@ export default function Register() {
   const [form, setForm] = useState({ nombre: '', email: '', password: '', ingreso_mensual: '', frecuencia_cobro: '', dia_cobro: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasDebts, setHasDebts] = useState(null);
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const nextStep = (e) => { e.preventDefault(); setStep((s) => s + 1); };
@@ -50,7 +51,6 @@ export default function Register() {
       nav('/onboard');
     } catch (err) {
       setError(err.response?.data?.message || t('register_error'));
-      setStep(1);
     } finally { setLoading(false); }
   };
 
@@ -200,11 +200,32 @@ export default function Register() {
             <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{t('register_final_title')}</div>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>{t('register_final_sub')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {[t('register_has_debts'), t('register_no_debts')].map((opt) => (
-                <div key={opt} style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{opt}</div>
-                </div>
-              ))}
+              {[
+                { val: true,  label: t('register_has_debts') },
+                { val: false, label: t('register_no_debts') },
+              ].map(({ val, label }) => {
+                const selected = hasDebts === val;
+                return (
+                  <div key={String(val)} onClick={() => setHasDebts(val)}
+                    style={{
+                      background: selected ? 'rgba(29,158,117,.15)' : 'var(--bg3)',
+                      border: `2px solid ${selected ? 'var(--green)' : 'var(--border2)'}`,
+                      borderRadius: 12, padding: '14px 16px', cursor: 'pointer',
+                      transition: 'all .2s',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                    }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                      border: `2px solid ${selected ? 'var(--green)' : 'var(--border2)'}`,
+                      background: selected ? 'var(--green)' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {selected && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: selected ? 'var(--green2)' : 'var(--text1)' }}>{label}</div>
+                  </div>
+                );
+              })}
             </div>
             <button className="auth-btn" type="submit" disabled={loading}>
               {loading ? t('register_creating') : t('register_start')}
