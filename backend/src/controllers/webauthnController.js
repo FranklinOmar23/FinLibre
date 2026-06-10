@@ -8,8 +8,9 @@ const { User, WebAuthnCredential } = require('../models');
 const jwt = require('jsonwebtoken');
 
 const RP_NAME = 'FinLibre';
-const RP_ID = process.env.RP_ID || 'localhost';
-const ORIGIN = process.env.CLIENT_URL || 'http://localhost:5173';
+const isProd = process.env.NODE_ENV === 'production';
+const RP_ID = process.env.RP_ID || (isProd ? 'finlibre.arcodedominicana.com' : 'localhost');
+const ALLOWED_ORIGINS = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map(s => s.trim());
 
 // Almacena challenges temporalmente en memoria (en producción usar Redis/DB)
 const challengeStore = new Map();
@@ -56,7 +57,7 @@ exports.registrationVerify = async (req, res) => {
     const verification = await verifyRegistrationResponse({
       response: req.body,
       expectedChallenge,
-      expectedOrigin: ORIGIN,
+      expectedOrigin: ALLOWED_ORIGINS,
       expectedRPID: RP_ID,
     });
 
@@ -127,7 +128,7 @@ exports.authVerify = async (req, res) => {
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge: stored.challenge,
-      expectedOrigin: ORIGIN,
+      expectedOrigin: ALLOWED_ORIGINS,
       expectedRPID: RP_ID,
       authenticator: {
         credentialID: Buffer.from(cred.credential_id, 'base64url'),

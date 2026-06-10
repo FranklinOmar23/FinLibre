@@ -111,7 +111,7 @@ export default function Perfil() {
       const { data } = await api.post('/stripe/checkout', { amount });
       window.location.href = data.url;
     } catch {
-      // silencioso — el usuario sigue en la página
+      window.open('https://ko-fi.com/finlibre', '_blank');
     } finally {
       setStripeLoading(false);
     }

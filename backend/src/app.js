@@ -48,7 +48,8 @@ const authLimiter = rateLimit({
   max: isProd ? 200 : 2000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/register', // register has no brute-force risk
+  // solo proteger endpoints con riesgo de brute force (login de contraseña)
+  skip: (req) => !['/login', '/google', '/forgot-password', '/reset-password'].includes(req.path),
   message: { message: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' },
 });
 
