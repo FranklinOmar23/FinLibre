@@ -74,6 +74,69 @@ app.use('/api/goals',    apiLimiter, goalRoutes);
 app.use('/api/push',     apiLimiter, pushRoutes);
 app.use('/api/webauthn', apiLimiter, webauthnRoutes);
 
+app.get('/', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinLibre API</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+      font-family: 'Segoe UI', sans-serif;
+      color: #f1f5f9;
+    }
+    .card {
+      text-align: center;
+      padding: 48px 64px;
+      background: #1e293b;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      background: #22c55e;
+      border-radius: 50%;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+    p { color: #94a3b8; margin-top: 12px; font-size: 0.95rem; }
+    .badge {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 4px 14px;
+      background: #166534;
+      color: #86efac;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="dot"></span>Backend corriendo</h1>
+    <p>FinLibre API está activa y lista para recibir peticiones.</p>
+    <div class="badge">v1.0 &nbsp;·&nbsp; Node.js + Express</div>
+  </div>
+</body>
+</html>`);
+});
+
 app.get('/api/health', (req, res) => res.json({ status: 'OK', app: 'FinLibre API' }));
 app.use((req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 
