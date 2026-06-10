@@ -172,6 +172,22 @@ body::before { content: ''; position: fixed; inset: 0; background-image: url("da
   .view { padding: 20px 16px 100px; }
   .g2, .g3, .g4 { grid-template-columns: 1fr; }
   .mob-nav { display: flex; }
+
+  /* ── Auth pages en móvil ── */
+  .auth-view {
+    min-height: 100dvh;
+    align-items: flex-start;
+    padding: 16px 12px 32px;
+  }
+  .auth-card {
+    padding: 24px 20px;
+    border-radius: 18px;
+    max-width: 100%;
+  }
+  .auth-card > div:first-child { margin-bottom: 16px; }
+  .auth-btn { padding: 13px; font-size: 13px; }
+  .field input, .field select { padding: 11px 12px; font-size: 13px; }
+  .field { margin-bottom: 12px; }
 }
 
 /* ── Lucide icon helpers ───────────────────────────────────── */

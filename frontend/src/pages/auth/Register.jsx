@@ -65,10 +65,10 @@ export default function Register() {
     <div className="auth-view">
       <div className="auth-glow" />
       <div className="auth-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <div className="logo-badge" style={{ width: 44, height: 44 }}><LibSm size={26} /></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <div className="logo-badge" style={{ width: 40, height: 40 }}><LibSm size={22} /></div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>FinLibre</div>
+            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.5 }}>FinLibre</div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{t('register_new_account')}</div>
           </div>
         </div>
