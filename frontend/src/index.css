@@ -176,13 +176,19 @@ body::before { content: ''; position: fixed; inset: 0; background-image: url("da
   /* ── Auth pages en móvil ── */
   .auth-view {
     min-height: 100dvh;
-    align-items: flex-start;
-    padding: 16px 12px 32px;
+    padding: 0;
+    align-items: stretch;
+    flex-direction: column;
   }
   .auth-card {
-    padding: 24px 20px;
-    border-radius: 18px;
+    flex: 1;
+    border-radius: 0;
+    padding: 32px 20px 48px;
     max-width: 100%;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    box-shadow: none;
   }
   .auth-card > div:first-child { margin-bottom: 16px; }
   .auth-btn { padding: 13px; font-size: 13px; }

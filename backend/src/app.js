@@ -45,9 +45,10 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isProd ? 50 : 500,
+  max: isProd ? 200 : 2000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path === '/register', // register has no brute-force risk
   message: { message: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' },
 });
 
