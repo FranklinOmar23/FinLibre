@@ -63,14 +63,13 @@ exports.registrationVerify = async (req, res) => {
 
     if (!verification.verified) return res.status(400).json({ error: 'Verificación fallida' });
 
-    const { credentialID, credentialPublicKey, counter, credentialDeviceType } =
-      verification.registrationInfo;
+    const { credential, credentialDeviceType } = verification.registrationInfo;
 
     await WebAuthnCredential.create({
       user_id: req.userId,
-      credential_id: Buffer.from(credentialID).toString('base64url'),
-      public_key: Buffer.from(credentialPublicKey).toString('base64url'),
-      counter,
+      credential_id: Buffer.from(credential.id).toString('base64url'),
+      public_key: Buffer.from(credential.publicKey).toString('base64url'),
+      counter: credential.counter,
       device_type: credentialDeviceType,
     });
 
@@ -130,9 +129,9 @@ exports.authVerify = async (req, res) => {
       expectedChallenge: stored.challenge,
       expectedOrigin: ALLOWED_ORIGINS,
       expectedRPID: RP_ID,
-      authenticator: {
-        credentialID: Buffer.from(cred.credential_id, 'base64url'),
-        credentialPublicKey: Buffer.from(cred.public_key, 'base64url'),
+      credential: {
+        id: cred.credential_id,
+        publicKey: Buffer.from(cred.public_key, 'base64url'),
         counter: Number(cred.counter),
       },
     });

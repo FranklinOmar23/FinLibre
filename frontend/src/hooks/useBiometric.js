@@ -11,20 +11,18 @@ export function useBiometric() {
     return window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
   };
 
-  // Registrar huella/Face ID del dispositivo (usuario ya autenticado)
   const registerBiometric = async () => {
     const optRes = await api.post('/webauthn/register/options');
-    const attResp = await startRegistration(optRes.data);
+    const attResp = await startRegistration({ optionsJSON: optRes.data });
     await api.post('/webauthn/register/verify', attResp);
     return true;
   };
 
-  // Login con biometría (sin contraseña)
   const loginWithBiometric = async (email) => {
     const optRes = await api.post('/webauthn/auth/options', { email });
-    const assertResp = await startAuthentication(optRes.data);
+    const assertResp = await startAuthentication({ optionsJSON: optRes.data });
     const verifyRes = await api.post('/webauthn/auth/verify', { email, response: assertResp });
-    return verifyRes.data; // { token, user }
+    return verifyRes.data;
   };
 
   return { isSupported, isPlatformAvailable, registerBiometric, loginWithBiometric };

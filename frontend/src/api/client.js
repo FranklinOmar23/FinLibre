@@ -32,11 +32,9 @@ api.interceptors.response.use(
   async (err) => {
     const original = err.config;
 
-    // Solo intentar refresh en 401 y si no es ya el endpoint de refresh/logout
-    const isAuthEndpoint = original.url?.includes('/auth/refresh') ||
-                           original.url?.includes('/auth/logout') ||
-                           original.url?.includes('/auth/login') ||
-                           original.url?.includes('/auth/register');
+    // Solo intentar refresh en 401 y si no es ya un endpoint de auth
+    // (la URL ya tuvo el / inicial removido por el interceptor de request)
+    const isAuthEndpoint = /auth\/(refresh|logout|login|register|google)/.test(original.url || '');
 
     if (err.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       original._retry = true;
@@ -68,7 +66,7 @@ api.interceptors.response.use(
         processQueue(refreshErr, null);
         // Refresh falló → sesión expirada definitivamente
         localStorage.removeItem('fl_token');
-        window.location.href = '/login';
+        if (window.location.pathname !== '/login') window.location.href = '/login';
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;

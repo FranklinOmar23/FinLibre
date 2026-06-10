@@ -9,25 +9,22 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('fl_token');
+    // Safety net: nunca más de 5 segundos en loading
+    const fallback = setTimeout(() => setLoading(false), 5000);
+
     if (token) {
-      // Intentar restaurar sesión con el access token existente
       api.get('/auth/me')
         .then((res) => setUser(res.data.user))
-        .catch(() => {
-          // Si falla, el interceptor de axios intentará el refresh automáticamente.
-          // Si el refresh también falla, redirige a /login por sí solo.
-          localStorage.removeItem('fl_token');
-        })
-        .finally(() => setLoading(false));
+        .catch(() => { localStorage.removeItem('fl_token'); })
+        .finally(() => { clearTimeout(fallback); setLoading(false); });
     } else {
-      // Sin access token, intentar refresh silencioso con la cookie httpOnly
       api.post('/auth/refresh', {})
         .then((res) => {
           localStorage.setItem('fl_token', res.data.token);
           setUser(res.data.user);
         })
-        .catch(() => {}) // sin cookie válida → quedarse en loading=false sin usuario
-        .finally(() => setLoading(false));
+        .catch(() => {})
+        .finally(() => { clearTimeout(fallback); setLoading(false); });
     }
   }, []);
 
