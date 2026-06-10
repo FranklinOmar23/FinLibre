@@ -19,9 +19,10 @@ export function useBiometric() {
   };
 
   const loginWithBiometric = async (email) => {
-    const optRes = await api.post('/webauthn/auth/options', { email });
-    const assertResp = await startAuthentication({ optionsJSON: optRes.data });
-    const verifyRes = await api.post('/webauthn/auth/verify', { email, response: assertResp });
+    const optRes = await api.post('/webauthn/auth/options', email ? { email } : {});
+    const { _ck, ...optionsJSON } = optRes.data;
+    const assertResp = await startAuthentication({ optionsJSON });
+    const verifyRes = await api.post('/webauthn/auth/verify', { _ck, response: assertResp });
     return verifyRes.data;
   };
 

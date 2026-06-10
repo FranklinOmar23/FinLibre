@@ -85,25 +85,32 @@ exports.registrationVerify = async (req, res) => {
 exports.authOptions = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    let allowCredentials = [];
+    let userId = null;
 
-    const creds = await WebAuthnCredential.findAll({ where: { user_id: user.id } });
-    if (creds.length === 0) return res.status(400).json({ error: 'No tienes biometría registrada' });
+    if (email) {
+      // Flujo con email: restringir al usuario específico
+      const user = await User.findOne({ where: { email } });
+      if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+      const creds = await WebAuthnCredential.findAll({ where: { user_id: user.id } });
+      if (creds.length === 0) return res.status(400).json({ error: 'No tienes biometría registrada. Actívala desde tu perfil.' });
+      allowCredentials = creds.map(c => ({ id: c.credential_id, type: 'public-key' }));
+      userId = user.id;
+    }
+    // Sin email: discoverable credentials — el dispositivo elige la credencial guardada
 
     const options = await generateAuthenticationOptions({
       rpID: RP_ID,
       userVerification: 'preferred',
-      allowCredentials: creds.map(c => ({
-        id: Buffer.from(c.credential_id, 'base64url'),
-        type: 'public-key',
-      })),
+      allowCredentials,
     });
 
-    challengeStore.set(`auth_${user.id}`, { challenge: options.challenge, userId: user.id });
-    setTimeout(() => challengeStore.delete(`auth_${user.id}`), 5 * 60 * 1000);
+    // Clave única para este challenge (permite múltiples sesiones simultáneas)
+    const ck = `auth_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    challengeStore.set(ck, { challenge: options.challenge, userId });
+    setTimeout(() => challengeStore.delete(ck), 5 * 60 * 1000);
 
-    res.json(options);
+    res.json({ ...options, _ck: ck });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -111,18 +118,19 @@ exports.authOptions = async (req, res) => {
 
 exports.authVerify = async (req, res) => {
   try {
-    const { email, response } = req.body;
-    const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const { response, _ck } = req.body;
 
-    const stored = challengeStore.get(`auth_${user.id}`);
-    if (!stored) return res.status(400).json({ error: 'Challenge expirado' });
+    const stored = _ck ? challengeStore.get(_ck) : null;
+    if (!stored) return res.status(400).json({ error: 'Challenge expirado. Inténtalo de nuevo.' });
 
+    // Buscar la credencial por su ID (funciona tanto con email como sin él)
     const credId = response.id;
-    const cred = await WebAuthnCredential.findOne({
-      where: { user_id: user.id, credential_id: credId },
-    });
+    const cred = await WebAuthnCredential.findOne({ where: { credential_id: credId } });
     if (!cred) return res.status(400).json({ error: 'Credencial no encontrada' });
+
+    // Para discoverable (sin email) usar el user_id de la credencial
+    const user = await User.findByPk(stored.userId || cred.user_id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
     const verification = await verifyAuthenticationResponse({
       response,
@@ -139,7 +147,7 @@ exports.authVerify = async (req, res) => {
     if (!verification.verified) return res.status(400).json({ error: 'Autenticación fallida' });
 
     await cred.update({ counter: verification.authenticationInfo.newCounter });
-    challengeStore.delete(`auth_${user.id}`);
+    challengeStore.delete(_ck);
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES || '7d',
@@ -148,9 +156,7 @@ exports.authVerify = async (req, res) => {
     res.json({
       token,
       user: {
-        id: user.id,
-        nombre: user.nombre,
-        email: user.email,
+        id: user.id, nombre: user.nombre, email: user.email,
         ingreso_mensual: user.ingreso_mensual,
         frecuencia_cobro: user.frecuencia_cobro,
         dia_cobro: user.dia_cobro,

@@ -32,10 +32,9 @@ export default function Login() {
   };
 
   const handleBiometric = async () => {
-    if (!form.email) { setError(t('login_error_bio')); return; }
     setError(''); setBioLoading(true);
     try {
-      const data = await biometric.loginWithBiometric(form.email);
+      const data = await biometric.loginWithBiometric(form.email || null);
       loginWithToken(data.token, data.user);
       nav('/app');
     } catch (err) {
