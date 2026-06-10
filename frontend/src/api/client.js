@@ -7,10 +7,12 @@ const api = axios.create({
   withCredentials: true, // envía la cookie httpOnly del refresh token
 });
 
-// Adjunta el access token a cada request
+// Adjunta el access token y normaliza rutas con /
+// (axios elimina el path del baseURL si la url empieza con /)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('fl_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (config.url?.startsWith('/')) config.url = config.url.slice(1);
   return config;
 });
 

@@ -38,17 +38,19 @@ app.use(express.json({ limit: '50kb' }));
 app.use(cookieParser());
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
+const isProd = process.env.NODE_ENV === 'production';
+
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 20,                   // 20 intentos por IP por ventana
+  windowMs: 15 * 60 * 1000,
+  max: isProd ? 20 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' },
 });
 
 const chatLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 min
-  max: 15,             // 15 mensajes por minuto (respetar cuota Gemini)
+  windowMs: 60 * 1000,
+  max: isProd ? 15 : 500, // respetar cuota Gemini solo en prod
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Demasiados mensajes. Espera un momento.' },
@@ -56,7 +58,7 @@ const chatLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: isProd ? 200 : 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Demasiadas solicitudes. Intenta más tarde.' },

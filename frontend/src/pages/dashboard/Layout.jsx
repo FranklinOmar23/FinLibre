@@ -4,6 +4,8 @@ import { useFinance } from '../../context/FinanceContext';
 import { useLang } from '../../context/LangContext';
 import { LibSm } from '../../components/LibSVG';
 import ChatBot from '../../components/ChatBot';
+import LibTour from '../../components/LibTour';
+import LibPop from '../../components/LibPop';
 import { Home, Receipt, CreditCard, PiggyBank, Compass, UserCircle } from 'lucide-react';
 
 export default function Layout() {
@@ -56,6 +58,8 @@ export default function Layout() {
       </main>
 
       <ChatBot />
+      <LibTour />
+      <LibPop />
 
       <nav className="mob-nav">
         {NAV.map((item) => (
