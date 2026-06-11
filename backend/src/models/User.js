@@ -46,9 +46,26 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('es','en','pt'),
     defaultValue: 'es',
   },
+  email_verified: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true, // true para usuarios existentes; nuevos registros se crean con false
+    allowNull: false,
+  },
+  verification_token: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+  },
 }, {
   tableName: 'users',
   timestamps: true,
+});
+
+// Garantiza que un usuario con token de verificación nunca se guarde como verificado,
+// sin importar el defaultValue del modelo ni el DEFAULT de MySQL.
+User.addHook('beforeCreate', (user) => {
+  if (user.getDataValue('verification_token')) {
+    user.setDataValue('email_verified', false);
+  }
 });
 
 module.exports = User;

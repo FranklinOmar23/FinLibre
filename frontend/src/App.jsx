@@ -7,6 +7,7 @@ import Splash         from './pages/auth/Splash';
 import Login          from './pages/auth/Login';
 import Register       from './pages/auth/Register';
 import Onboard        from './pages/auth/Onboard';
+import VerifyEmail    from './pages/auth/VerifyEmail';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword  from './pages/auth/ResetPassword';
 import Layout    from './pages/dashboard/Layout';
@@ -24,7 +25,10 @@ function PrivateRoute({ children }) {
       Cargando...
     </div>
   );
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  // Bloquear acceso hasta que el usuario verifique su correo
+  if (user.email_verified === false) return <Navigate to="/verify-email" replace />;
+  return children;
 }
 
 function PublicRoute({ children }) {
@@ -46,6 +50,8 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password"  element={<ResetPassword />} />
       <Route path="/onboard" element={<PrivateRoute><Onboard /></PrivateRoute>} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/verify-email/:token" element={<VerifyEmail />} />
       <Route path="/app" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Inicio />} />
         <Route path="servicios" element={<Servicios />} />

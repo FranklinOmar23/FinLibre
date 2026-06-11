@@ -150,13 +150,16 @@ app.use((req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 // ── Arranque ──────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-// El servidor arranca siempre; la DB se conecta en paralelo
-app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`));
-
+// El servidor arranca DESPUÉS del sync para evitar que lleguen peticiones
+// antes de que las columnas nuevas existan en la base de datos.
 sequelize
-  .sync({})
+  .sync({ alter: true }) // añade columnas nuevas sin borrar datos existentes
   .then(() => {
     console.log('✅ Base de datos sincronizada');
     startReminderJob();
+    app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`));
   })
-  .catch((err) => console.error('❌ Error de base de datos:', err.message));
+  .catch((err) => {
+    console.error('❌ Error de base de datos:', err.message);
+    process.exit(1);
+  });

@@ -190,6 +190,18 @@ async function sendDonationSuccess({ to, nombre, amount, currency = 'USD' }) {
   return getTransport().sendMail({ from: from(), to, subject: '💚 ¡Gracias por apoyar FinLibre!', html });
 }
 
+async function sendEmailVerification({ to, nombre, verifyUrl }) {
+  const html = base(
+    chip('📧 Verifica tu cuenta') +
+    h1(`¡Hola ${nombre}! Confirma tu correo`) +
+    p('Para activar tu cuenta de FinLibre solo tienes que hacer clic en el botón de abajo.') +
+    p(`El enlace expira en <strong style="color:#e6edf3">24 horas</strong>.`) +
+    btn('Verificar mi correo', verifyUrl) +
+    `<p style="margin:20px 0 0;font-size:11px;color:#6e7681;text-align:center">Si no creaste esta cuenta, ignora este correo. No necesitas hacer nada.</p>`
+  );
+  return getTransport().sendMail({ from: from(), to, subject: '✅ Verifica tu correo — FinLibre', html });
+}
+
 async function sendPasswordChanged({ to, nombre }) {
   const url = appUrl();
   const now = new Date().toLocaleString('es-ES', {
@@ -211,6 +223,7 @@ async function sendPasswordChanged({ to, nombre }) {
 
 module.exports = {
   sendWelcome,
+  sendEmailVerification,
   sendPasswordReset,
   sendLoginAlert,
   sendDonationSuccess,

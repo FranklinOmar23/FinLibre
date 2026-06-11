@@ -14,6 +14,11 @@ import {
 } from 'lucide-react';
 
 
+function formatIncome(val) {
+  const num = Math.round(parseFloat(String(val || '').replace(/,/g, '')) || 0);
+  return num ? num.toLocaleString('en-US') : '';
+}
+
 function escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -34,7 +39,7 @@ export default function Perfil() {
 
   const [form, setForm] = useState({
     nombre: user?.nombre || '',
-    ingreso_mensual: user?.ingreso_mensual || '',
+    ingreso_mensual: formatIncome(user?.ingreso_mensual),
     idioma: user?.idioma || currentIdioma || 'es',
     moneda: user?.moneda || currentMoneda || 'DOP',
   });
@@ -74,7 +79,11 @@ export default function Perfil() {
     try {
       localStorage.setItem('fl_idioma', form.idioma);
       localStorage.setItem('fl_moneda', form.moneda);
-      const res = await api.put('/users/profile', form);
+      const payload = {
+        ...form,
+        ingreso_mensual: Number(String(form.ingreso_mensual).replace(/,/g, '')) || 0,
+      };
+      const res = await api.put('/users/profile', payload);
       updateUser(res.data.user);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -229,7 +238,19 @@ export default function Perfil() {
               </div>
             )}
             <div className="field"><label>{t('perfil_name')}</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} /></div>
-            <div className="field"><label>{t('perfil_income')}</label><input type="number" value={form.ingreso_mensual} onChange={(e) => setForm({ ...form, ingreso_mensual: e.target.value })} /></div>
+            <div className="field">
+              <label>{t('perfil_income')}</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.ingreso_mensual}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^\d]/g, '');
+                  setForm({ ...form, ingreso_mensual: digits ? Number(digits).toLocaleString('en-US') : '' });
+                }}
+                placeholder="45,000"
+              />
+            </div>
 
             {/* Language */}
             <div className="field">

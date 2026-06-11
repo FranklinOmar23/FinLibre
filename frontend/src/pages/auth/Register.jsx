@@ -36,7 +36,14 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [hasDebts, setHasDebts] = useState(null);
 
-  const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handle = (e) => {
+    if (e.target.name === 'ingreso_mensual') {
+      const digits = e.target.value.replace(/[^\d]/g, '');
+      setForm({ ...form, ingreso_mensual: digits ? Number(digits).toLocaleString('en-US') : '' });
+    } else {
+      setForm({ ...form, [e.target.name]: e.target.value });
+    }
+  };
   const nextStep = (e) => { e.preventDefault(); setStep((s) => s + 1); };
 
   const submit = async (e) => {
@@ -44,11 +51,11 @@ export default function Register() {
     setError(''); setLoading(true);
     try {
       await register(form.nombre, form.email, form.password,
-        parseFloat(form.ingreso_mensual) || 0,
+        Number(String(form.ingreso_mensual).replace(/,/g, '')) || 0,
         form.frecuencia_cobro || null,
         parseInt(form.dia_cobro) || null,
       );
-      nav('/onboard');
+      nav('/verify-email');
     } catch (err) {
       setError(err.response?.data?.message || t('register_error'));
     } finally { setLoading(false); }
@@ -113,7 +120,7 @@ export default function Register() {
             <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>{t('register_income_sub')}</div>
             <div className="field">
               <label>{t('perfil_income')}</label>
-              <input type="number" name="ingreso_mensual" placeholder="45000" value={form.ingreso_mensual} onChange={handle} style={{ fontSize: 22, fontFamily: 'var(--mono)', fontWeight: 700 }} />
+              <input type="text" inputMode="numeric" name="ingreso_mensual" placeholder="45,000" value={form.ingreso_mensual} onChange={handle} style={{ fontSize: 22, fontFamily: 'var(--mono)', fontWeight: 700 }} />
             </div>
             <div className="alert alert-g" style={{ marginBottom: 16 }}>
               <span className="alert-ico">💡</span>

@@ -38,6 +38,7 @@ const safeUser = (u) => ({
   dia_cobro: u.dia_cobro,
   moneda: u.moneda || 'DOP',
   idioma: u.idioma || 'es',
+  email_verified: !!u.email_verified,
 });
 
 function getClientIp(req) {
@@ -73,18 +74,33 @@ exports.register = async (req, res) => {
     if (existe) return res.status(409).json({ message: 'El email ya está registrado' });
 
     const hash = await bcrypt.hash(password, 12);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
     const user = await User.create({
       nombre: nombre.trim(), email: email.toLowerCase().trim(), password: hash,
       ingreso_mensual: Math.max(0, Number(ingreso_mensual) || 0),
       frecuencia_cobro: frecuencia_cobro || null,
       dia_cobro: dia_cobro || null,
+      email_verified: false,
+      verification_token: verificationToken,
     });
 
     const accessToken  = signAccess(user.id);
     const refreshToken = await createRefreshToken(user.id);
 
-    // Enviar bienvenida (no bloquea la respuesta)
+    // CLIENT_URL puede tener múltiples valores separados por coma — usar solo el primero
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim();
+
+    // Enviar bienvenida + verificación (no bloquean la respuesta)
     emailService.sendWelcome({ to: user.email, nombre: user.nombre.split(' ')[0] }).catch(() => {});
+    emailService.sendEmailVerification({
+      to: user.email,
+      nombre: user.nombre.split(' ')[0],
+      verifyUrl: `${clientUrl}/verify-email/${verificationToken}`,
+    }).catch(err => console.error('[register] verification email error:', err.message));
+
+    // El hook beforeCreate ya forzó email_verified = false en DB;
+    // aquí lo sincronizamos en el objeto para que safeUser lo refleje correctamente.
+    user.email_verified = false;
 
     res.cookie('fl_refresh', refreshToken, COOKIE_OPTS);
     res.status(201).json({ token: accessToken, user: safeUser(user) });
@@ -244,13 +260,56 @@ exports.logout = async (req, res) => {
 exports.me = async (req, res) => {
   try {
     const user = await User.findByPk(req.userId, {
-      attributes: ['id', 'nombre', 'email', 'ingreso_mensual', 'frecuencia_cobro', 'dia_cobro', 'moneda', 'idioma', 'createdAt'],
+      attributes: ['id', 'nombre', 'email', 'ingreso_mensual', 'frecuencia_cobro', 'dia_cobro', 'moneda', 'idioma', 'createdAt', 'email_verified'],
     });
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
-    res.json({ user });
+    res.json({ user: { ...user.toJSON(), email_verified: !!user.email_verified } });
   } catch (err) {
     console.error('[me]', err.message);
     res.status(500).json({ message: 'Error interno' });
+  }
+};
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token || token.length !== 64)
+      return res.status(400).json({ message: 'Token inválido' });
+
+    const user = await User.findOne({ where: { verification_token: token, email_verified: false } });
+    if (!user) return res.status(400).json({ message: 'Token inválido o ya verificado' });
+
+    user.email_verified = true;
+    user.verification_token = null;
+    await user.save();
+    res.json({ message: 'Correo verificado correctamente' });
+  } catch (err) {
+    console.error('[verifyEmail]', err.message);
+    res.status(500).json({ message: 'Error al verificar' });
+  }
+};
+
+exports.resendVerification = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.userId);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    if (user.email_verified) return res.json({ message: 'Correo ya verificado' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    user.verification_token = token;
+    await user.save();
+
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim();
+    emailService.sendEmailVerification({
+      to: user.email,
+      nombre: user.nombre.split(' ')[0],
+      verifyUrl: `${clientUrl}/verify-email/${token}`,
+    }).catch(err => console.error('[resend] verification email error:', err.message));
+
+    res.json({ message: 'Correo reenviado' });
+  } catch (err) {
+    console.error('[resendVerification]', err.message);
+    res.status(500).json({ message: 'Error al reenviar' });
   }
 };
 

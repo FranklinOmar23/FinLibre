@@ -30,8 +30,8 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { background: var(--bg); font-family: var(--font); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+html { scroll-behavior: smooth; height: -webkit-fill-available; }
+body { background: var(--bg); font-family: var(--font); color: var(--text); min-height: 100vh; min-height: -webkit-fill-available; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; opacity: 0.4; }
 
 ::-webkit-scrollbar { width: 5px; }
@@ -173,6 +173,9 @@ body::before { content: ''; position: fixed; inset: 0; background-image: url("da
   .g2, .g3, .g4 { grid-template-columns: 1fr; }
   .g2 { align-items: start; }
   .mob-nav { display: flex; }
+
+  /* Deshabilitar fondo SVG con feTurbulence — causa pantalla negra en iOS Safari */
+  body::before { display: none; }
 
   /* ── Auth pages en móvil ── */
   .auth-view {
