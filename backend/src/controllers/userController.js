@@ -14,9 +14,11 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+const REGIMENES_VALIDOS = ['RD_FORMAL', 'CUSTOM', 'NONE'];
+
 exports.updateProfile = async (req, res) => {
   try {
-    const { nombre, ingreso_mensual, password, moneda, idioma } = req.body;
+    const { nombre, ingreso_mensual, password, moneda, idioma, regimen, deduccion_pct } = req.body;
     const user = await User.findByPk(req.userId);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
@@ -37,6 +39,21 @@ exports.updateProfile = async (req, res) => {
     }
     if (moneda !== undefined) user.moneda = moneda;
     if (idioma !== undefined) user.idioma = idioma;
+    if (regimen !== undefined) {
+      if (!REGIMENES_VALIDOS.includes(regimen))
+        return res.status(400).json({ message: 'Régimen inválido' });
+      user.regimen = regimen;
+    }
+    if (deduccion_pct !== undefined) {
+      if (deduccion_pct === null) {
+        user.deduccion_pct = null;
+      } else {
+        const pct = Number(deduccion_pct);
+        if (isNaN(pct) || pct < 0 || pct > 99)
+          return res.status(400).json({ message: 'Porcentaje de deducción inválido (0-99)' });
+        user.deduccion_pct = pct;
+      }
+    }
 
     await user.save();
     res.json({
@@ -44,6 +61,7 @@ exports.updateProfile = async (req, res) => {
         id: user.id, nombre: user.nombre, email: user.email,
         ingreso_mensual: user.ingreso_mensual,
         moneda: user.moneda, idioma: user.idioma,
+        regimen: user.regimen, deduccion_pct: user.deduccion_pct ?? null,
       },
     });
   } catch (err) {

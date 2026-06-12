@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useLang } from '../../context/LangContext';
+import { calcDeducciones } from '../../utils/deducciones';
 import ModalServicio from '../../components/ModalServicio';
 import {
   Leaf, AlertTriangle, CalendarDays, PartyPopper,
@@ -15,8 +16,12 @@ export default function Inicio() {
   const [showModal, setShowModal] = useState(false);
 
   const ingreso = parseFloat(user?.ingreso_mensual || 0);
-  const libre = ingreso - totalServicios - totalCuotas;
-  const comprometido = ingreso > 0 ? Math.round(((totalServicios + totalCuotas) / ingreso) * 100) : 0;
+  const regimen = user?.regimen || 'RD_FORMAL';
+  const pct = parseFloat(user?.deduccion_pct || 0);
+  const { afp, sfs, isr, dedu, neto } = calcDeducciones(ingreso, regimen, pct);
+
+  const libre = neto - totalServicios - totalCuotas;
+  const comprometido = neto > 0 ? Math.round(((totalServicios + totalCuotas) / neto) * 100) : 0;
   const score = Math.max(0, Math.min(100, 100 - comprometido));
 
   const scoreColor = score >= 60 ? 'var(--green2)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
@@ -30,6 +35,19 @@ export default function Inicio() {
     : 0;
 
   const nombre = user?.nombre?.split(' ')[0] || '';
+
+  const showDeductions = ingreso > 0 && regimen !== 'NONE';
+  const deduRows = showDeductions
+    ? regimen === 'RD_FORMAL'
+      ? [
+          { label: t('dedu_afp'), note: '2.87 %', val: afp },
+          { label: t('dedu_sfs'), note: '3.04 %', val: sfs },
+          ...(isr > 0 ? [{ label: t('dedu_isr'), note: '', val: isr }] : []),
+        ]
+      : dedu > 0
+        ? [{ label: t('dedu_custom_label', { pct }), note: '', val: dedu }]
+        : []
+    : [];
 
   return (
     <div className="view">
@@ -62,8 +80,8 @@ export default function Inicio() {
 
       <div className="g4 stagger-list" style={{ marginBottom: 18 }}>
         <div className="stat">
-          <div className="stat-val" style={{ color: 'var(--green2)' }}>{fmt(ingreso)}</div>
-          <div className="stat-lbl">{t('inicio_income')}</div>
+          <div className="stat-val" style={{ color: 'var(--green2)' }}>{fmt(ingreso > 0 ? neto : 0)}</div>
+          <div className="stat-lbl">{ingreso > 0 ? t('inicio_net_income') : t('inicio_income')}</div>
         </div>
         <div className="stat">
           <div className="stat-val" style={{ color: 'var(--blue)' }}>{fmt(totalServicios)}</div>
@@ -134,13 +152,48 @@ export default function Inicio() {
 
       <div className="card">
         <div className="sec-label">{t('inicio_summary')}</div>
+
+        {/* Ingreso (bruto o neto según régimen) */}
         <div className="row">
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div className="row-ico" style={{ background: 'rgba(29,158,117,.12)' }}><DollarSign size={18} /></div>
-            <div><div className="row-name">{t('inicio_total_income')}</div><div className="row-sub">{t('inicio_salary')}</div></div>
+            <div>
+              <div className="row-name">{regimen === 'NONE' ? t('inicio_net_income') : t('dedu_bruto')}</div>
+              <div className="row-sub">{t('inicio_salary')}</div>
+            </div>
           </div>
           <div className="row-amt" style={{ color: 'var(--green2)' }}>{fmt(ingreso)}</div>
         </div>
+
+        {/* Filas de deducciones */}
+        {deduRows.map((d) => (
+          <div key={d.label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '6px 0 6px 54px',
+            borderBottom: '1px solid var(--border2)',
+          }}>
+            <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+              {d.label}
+              {d.note && <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.65 }}>{d.note}</span>}
+            </div>
+            <div style={{ fontSize: 13, fontFamily: 'var(--mono)', color: 'var(--text3)', fontWeight: 600 }}>
+              −{fmt(d.val)}
+            </div>
+          </div>
+        ))}
+
+        {/* Subtotal neto (solo cuando hay deducciones) */}
+        {showDeductions && deduRows.length > 0 && (
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '9px 0 9px 54px', marginBottom: 2,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{t('dedu_neto')}</span>
+            <span style={{ fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--green2)' }}>{fmt(neto)}</span>
+          </div>
+        )}
+
+        {/* Servicios */}
         <div className="row">
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div className="row-ico" style={{ background: 'rgba(91,164,224,.12)' }}><Receipt size={18} /></div>
@@ -148,6 +201,8 @@ export default function Inicio() {
           </div>
           <div className="row-amt" style={{ color: 'var(--blue)' }}>−{fmt(totalServicios)}</div>
         </div>
+
+        {/* Cuotas */}
         <div className="row">
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div className="row-ico" style={{ background: 'rgba(224,82,82,.12)' }}><CreditCard size={18} /></div>
@@ -155,6 +210,8 @@ export default function Inicio() {
           </div>
           <div className="row-amt" style={{ color: 'var(--red)' }}>−{fmt(totalCuotas)}</div>
         </div>
+
+        {/* Dinero libre */}
         <div className="row" style={{ borderTop: '1px solid var(--border2)', marginTop: 6, paddingTop: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div className="row-ico" style={{ background: 'rgba(29,158,117,.2)' }}><Sparkles size={18} /></div>

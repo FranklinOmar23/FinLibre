@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useLang } from '../../context/LangContext';
+import { calcDeducciones } from '../../utils/deducciones';
 import ModalAhorro from '../../components/ModalAhorro';
 import ModalMeta from '../../components/ModalMeta';
 import {
@@ -29,8 +30,9 @@ export default function Ahorros() {
   const [abonarLoading, setAbonarLoading] = useState(false);
 
   const ingreso = parseFloat(user?.ingreso_mensual || 0);
+  const { neto } = calcDeducciones(ingreso, user?.regimen || 'RD_FORMAL', parseFloat(user?.deduccion_pct || 0));
   const totalMetasMes = goals.reduce((sum, g) => sum + parseFloat(g.ahorro_mensual || 0), 0);
-  const libre = ingreso - totalServicios - totalCuotas;
+  const libre = neto - totalServicios - totalCuotas;
   const libreTrasMetas = libre - totalMetasMes;
 
   const totalGuardado =
@@ -214,7 +216,7 @@ export default function Ahorros() {
       </div>
 
       {goals.length > 0 && ingreso > 0 && (
-        <div className={`alert ${libreTrasMetas < 0 ? 'alert-r' : libreTrasMetas < ingreso * 0.1 ? 'alert-a' : 'alert-g'}`}>
+        <div className={`alert ${libreTrasMetas < 0 ? 'alert-r' : libreTrasMetas < neto * 0.1 ? 'alert-a' : 'alert-g'}`}>
           <span className="alert-ico">{libreTrasMetas < 0 ? <AlertTriangle size={16} /> : <Wallet size={16} />}</span>
           <div style={{ fontSize: 12 }}>
             <span dangerouslySetInnerHTML={{ __html: t('ahorros_commit', { amount: fmt(totalMetasMes) }) }} />

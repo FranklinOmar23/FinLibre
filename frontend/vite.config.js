@@ -24,10 +24,12 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,    // activa el SW nuevo sin esperar que el usuario cierre pestañas
+        clientsClaim: true,   // el SW nuevo toma control de todos los clientes inmediatamente
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^http:\/\/localhost:5000\/api\//,
+            urlPattern: /\/api\//,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',

@@ -3,10 +3,6 @@ import { LibFull } from './LibSVG';
 
 const MESSAGES = [
   {
-    msg: '¿Te está siendo útil FinLibre? Si quieres que siga creciendo, considera apoyar al desarrollador. ¡Cada granito ayuda! ☕',
-    action: { label: '💚 Donar', url: 'https://ko-fi.com/finlibre' },
-  },
-  {
     msg: 'Tip: ¡Activa las notificaciones push y te recuerdo tus días de cobro automáticamente! Ve a tu Perfil para activarlas. 🔔',
     action: null,
   },
@@ -28,6 +24,10 @@ const MESSAGES = [
   },
   {
     msg: '¡Hola de nuevo! Recuerda que puedes cambiar tu moneda e idioma en cualquier momento desde tu Perfil. 🌎',
+    action: null,
+  },
+  {
+    msg: 'Revisa la sección de Ahorros y crea una meta para tu fondo de emergencia. Lo ideal es tener 3 meses de gastos guardados. 🐷',
     action: null,
   },
 ];

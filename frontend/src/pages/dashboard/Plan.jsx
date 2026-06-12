@@ -1,6 +1,7 @@
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useLang } from '../../context/LangContext';
+import { calcDeducciones } from '../../utils/deducciones';
 import { Target, PartyPopper, TrendingUp, Trophy, AlertTriangle } from 'lucide-react';
 
 export default function Plan() {
@@ -9,7 +10,8 @@ export default function Plan() {
   const { t, fmt, months } = useLang();
 
   const ingreso = parseFloat(user?.ingreso_mensual || 0);
-  const libre = ingreso - totalServicios - totalCuotas;
+  const { neto } = calcDeducciones(ingreso, user?.regimen || 'RD_FORMAL', parseFloat(user?.deduccion_pct || 0));
+  const libre = neto - totalServicios - totalCuotas;
 
   const fechaLibre = (meses) => {
     const d = new Date();

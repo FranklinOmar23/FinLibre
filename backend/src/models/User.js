@@ -55,6 +55,16 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(64),
     allowNull: true,
   },
+  regimen: {
+    type: DataTypes.ENUM('RD_FORMAL', 'CUSTOM', 'NONE'),
+    defaultValue: 'RD_FORMAL',
+    allowNull: false,
+  },
+  deduccion_pct: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: true,
+    defaultValue: null,
+  },
 }, {
   tableName: 'users',
   timestamps: true,

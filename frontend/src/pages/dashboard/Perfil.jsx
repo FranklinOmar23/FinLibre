@@ -7,6 +7,7 @@ import { LibFull } from '../../components/LibSVG';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useBiometric } from '../../hooks/useBiometric';
 import api from '../../api/client';
+import { calcDeducciones } from '../../utils/deducciones';
 import {
   Bell, Fingerprint, Heart, Users, Download, LogOut,
   ChevronRight, CalendarDays, Check, CheckCircle2,
@@ -42,6 +43,8 @@ export default function Perfil() {
     ingreso_mensual: formatIncome(user?.ingreso_mensual),
     idioma: user?.idioma || currentIdioma || 'es',
     moneda: user?.moneda || currentMoneda || 'DOP',
+    regimen: user?.regimen || 'RD_FORMAL',
+    deduccion_pct: user?.deduccion_pct ?? '',
   });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -80,8 +83,14 @@ export default function Perfil() {
       localStorage.setItem('fl_idioma', form.idioma);
       localStorage.setItem('fl_moneda', form.moneda);
       const payload = {
-        ...form,
+        nombre: form.nombre,
         ingreso_mensual: Number(String(form.ingreso_mensual).replace(/,/g, '')) || 0,
+        idioma: form.idioma,
+        moneda: form.moneda,
+        regimen: form.regimen,
+        deduccion_pct: form.regimen === 'CUSTOM'
+          ? (Number(form.deduccion_pct) || 0)
+          : null,
       };
       const res = await api.put('/users/profile', payload);
       updateUser(res.data.user);
@@ -250,6 +259,103 @@ export default function Perfil() {
                 }}
                 placeholder="45,000"
               />
+            </div>
+
+            {/* Desglose salarial en tiempo real */}
+            {(() => {
+              const bruto = Number(String(form.ingreso_mensual).replace(/,/g, '')) || 0;
+              if (!bruto || form.regimen === 'NONE') return null;
+              const { afp, sfs, isr, dedu, neto } = calcDeducciones(
+                bruto, form.regimen, Number(form.deduccion_pct) || 0,
+              );
+              const rows = form.regimen === 'RD_FORMAL'
+                ? [
+                    { label: t('dedu_afp'), note: '2.87 %', val: afp },
+                    { label: t('dedu_sfs'), note: '3.04 %', val: sfs },
+                    ...(isr > 0 ? [{ label: t('dedu_isr'), note: '', val: isr }] : []),
+                  ]
+                : dedu > 0
+                  ? [{ label: t('dedu_custom_label', { pct: Number(form.deduccion_pct) || 0 }), note: '', val: dedu }]
+                  : [];
+              if (rows.length === 0) return null;
+              return (
+                <div style={{
+                  background: 'var(--bg3)', borderRadius: 10,
+                  border: '1px solid var(--border)', padding: '10px 14px',
+                  marginTop: -6, marginBottom: 14,
+                }}>
+                  <div style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 8, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                    {t('dedu_title')}
+                  </div>
+                  {rows.map(row => (
+                    <div key={row.label} style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      padding: '4px 0', borderBottom: '1px solid var(--border2)',
+                      fontSize: 12, color: 'var(--text3)',
+                    }}>
+                      <span>
+                        {row.label}
+                        {row.note && <span style={{ fontSize: 10, opacity: 0.6, marginLeft: 5 }}>{row.note}</span>}
+                      </span>
+                      <span style={{ fontFamily: 'var(--mono)', color: 'var(--red)', fontWeight: 600 }}>
+                        −{fmt(row.val)}
+                      </span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0 0', fontWeight: 700 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t('dedu_neto')}</span>
+                    <span style={{ fontFamily: 'var(--mono)', color: 'var(--green2)', fontSize: 13 }}>{fmt(neto)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Selector de régimen de deducciones */}
+            <div className="field" style={{ marginBottom: 14 }}>
+              <label style={{ marginBottom: 6, display: 'block', fontSize: 12, color: 'var(--text3)', fontWeight: 600 }}>
+                {t('regimen_label')}
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { val: 'RD_FORMAL', label: t('regimen_rd') },
+                  { val: 'CUSTOM',    label: t('regimen_custom') },
+                  { val: 'NONE',      label: t('regimen_none') },
+                ].map((opt) => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => setForm({ ...form, regimen: opt.val })}
+                    style={{
+                      padding: '9px 14px', borderRadius: 10, cursor: 'pointer',
+                      textAlign: 'left', fontFamily: 'var(--font)', fontSize: 12,
+                      border: `2px solid ${form.regimen === opt.val ? 'var(--green)' : 'var(--border2)'}`,
+                      background: form.regimen === opt.val ? 'rgba(29,158,117,.12)' : 'var(--bg3)',
+                      color: form.regimen === opt.val ? 'var(--green2)' : 'var(--text2)',
+                      fontWeight: form.regimen === opt.val ? 700 : 400,
+                      transition: 'all .15s',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {form.regimen === 'CUSTOM' && (
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>
+                    {t('regimen_custom_pct')}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    step="0.1"
+                    value={form.deduccion_pct}
+                    onChange={(e) => setForm({ ...form, deduccion_pct: e.target.value })}
+                    placeholder="Ej. 20"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Language */}

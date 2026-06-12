@@ -39,6 +39,8 @@ const safeUser = (u) => ({
   moneda: u.moneda || 'DOP',
   idioma: u.idioma || 'es',
   email_verified: !!u.email_verified,
+  regimen: u.regimen || 'RD_FORMAL',
+  deduccion_pct: u.deduccion_pct ?? null,
 });
 
 function getClientIp(req) {
@@ -260,7 +262,7 @@ exports.logout = async (req, res) => {
 exports.me = async (req, res) => {
   try {
     const user = await User.findByPk(req.userId, {
-      attributes: ['id', 'nombre', 'email', 'ingreso_mensual', 'frecuencia_cobro', 'dia_cobro', 'moneda', 'idioma', 'createdAt', 'email_verified'],
+      attributes: ['id', 'nombre', 'email', 'ingreso_mensual', 'frecuencia_cobro', 'dia_cobro', 'moneda', 'idioma', 'createdAt', 'email_verified', 'regimen', 'deduccion_pct'],
     });
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
     res.json({ user: { ...user.toJSON(), email_verified: !!user.email_verified } });

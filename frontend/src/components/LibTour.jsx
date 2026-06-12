@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LibFull } from './LibSVG';
+import { APP_VERSION } from '../utils/appVersion';
 
 const STEPS = [
   {
@@ -59,6 +60,8 @@ export default function LibTour() {
     setAnimIn(false);
     setTimeout(() => setVisible(false), 300);
     localStorage.setItem(STORAGE_KEY, '1');
+    // Marca la versión actual para que el WhatsNew no aparezca a usuarios recién registrados
+    localStorage.setItem('fl_seen_v', APP_VERSION);
   };
 
   const next = () => {
