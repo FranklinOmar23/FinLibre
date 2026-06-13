@@ -36,23 +36,34 @@ router.post('/', async (req, res) => {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const userId  = session.metadata?.userId;
+    const product = session.metadata?.product;
 
-    if (userId) {
-      try {
-        const user = await User.findByPk(userId);
-        if (user) {
-          const amount   = (session.amount_total / 100).toFixed(2);
-          const currency = (session.currency || 'usd').toUpperCase();
-          await emailService.sendDonationSuccess({
-            to: user.email,
-            nombre: user.nombre.split(' ')[0],
-            amount,
-            currency,
-          });
-        }
-      } catch (err) {
-        console.error('[stripe.webhook] Error enviando email de donación:', err.message);
+    if (!userId) {
+      res.json({ received: true });
+      return;
+    }
+
+    try {
+      const user = await User.findByPk(userId);
+      if (!user) { res.json({ received: true }); return; }
+
+      if (product === 'analysis_pro') {
+        // Activar Análisis Pro de por vida
+        await user.update({ analysis_pro: true });
+        console.log(`[stripe.webhook] analysis_pro activado para user ${userId}`);
+      } else {
+        // Donación — enviar email de agradecimiento
+        const amount   = (session.amount_total / 100).toFixed(2);
+        const currency = (session.currency || 'usd').toUpperCase();
+        await emailService.sendDonationSuccess({
+          to: user.email,
+          nombre: user.nombre.split(' ')[0],
+          amount,
+          currency,
+        });
       }
+    } catch (err) {
+      console.error('[stripe.webhook] Error procesando pago:', err.message);
     }
   }
 

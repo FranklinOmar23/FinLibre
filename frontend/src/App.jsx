@@ -17,6 +17,7 @@ import Deudas    from './pages/dashboard/Deudas';
 import Ahorros   from './pages/dashboard/Ahorros';
 import Plan      from './pages/dashboard/Plan';
 import Perfil    from './pages/dashboard/Perfil';
+import Analisis  from './pages/dashboard/Analisis';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -59,6 +60,7 @@ function AppRoutes() {
         <Route path="ahorros" element={<Ahorros />} />
         <Route path="plan" element={<Plan />} />
         <Route path="perfil" element={<Perfil />} />
+        <Route path="analisis" element={<Analisis />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -19,6 +19,7 @@ const webauthnRoutes     = require('./routes/webauthn');
 const chatRoutes         = require('./routes/chat');
 const stripeRoutes       = require('./routes/stripe');
 const stripeWebhook      = require('./routes/stripeWebhook');
+const analysisRoutes     = require('./routes/analysis');
 
 const app = express();
 
@@ -80,6 +81,7 @@ app.use('/api/savings',  apiLimiter, savingsRoutes);
 app.use('/api/goals',    apiLimiter, goalRoutes);
 app.use('/api/push',     apiLimiter, pushRoutes);
 app.use('/api/webauthn', apiLimiter, webauthnRoutes);
+app.use('/api/analysis', apiLimiter, analysisRoutes);
 
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>

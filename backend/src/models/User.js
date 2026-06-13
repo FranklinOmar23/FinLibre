@@ -65,6 +65,11 @@ const User = sequelize.define('User', {
     allowNull: true,
     defaultValue: null,
   },
+  analysis_pro: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+  },
 }, {
   tableName: 'users',
   timestamps: true,

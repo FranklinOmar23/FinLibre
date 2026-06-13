@@ -262,7 +262,7 @@ exports.logout = async (req, res) => {
 exports.me = async (req, res) => {
   try {
     const user = await User.findByPk(req.userId, {
-      attributes: ['id', 'nombre', 'email', 'ingreso_mensual', 'frecuencia_cobro', 'dia_cobro', 'moneda', 'idioma', 'createdAt', 'email_verified', 'regimen', 'deduccion_pct'],
+      attributes: ['id', 'nombre', 'email', 'ingreso_mensual', 'frecuencia_cobro', 'dia_cobro', 'moneda', 'idioma', 'createdAt', 'email_verified', 'regimen', 'deduccion_pct', 'analysis_pro'],
     });
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
     res.json({ user: { ...user.toJSON(), email_verified: !!user.email_verified } });

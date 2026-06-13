@@ -10,7 +10,7 @@ import LibWhatsNew from '../../components/LibWhatsNew';
 import LibDonate from '../../components/LibDonate';
 import IOSInstallModal from '../../components/IOSInstallModal';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
-import { Home, Receipt, CreditCard, PiggyBank, Compass, UserCircle, Download } from 'lucide-react';
+import { Home, Receipt, CreditCard, PiggyBank, Compass, UserCircle, Download, ScanText } from 'lucide-react';
 
 export default function Layout() {
   const { fetchAll } = useFinance();
@@ -33,6 +33,7 @@ export default function Layout() {
     { id: 'deudas',    Icon: CreditCard, label: t('nav_deudas'),    path: '/app/deudas' },
     { id: 'ahorros',   Icon: PiggyBank,  label: t('nav_ahorro'),    path: '/app/ahorros' },
     { id: 'plan',      Icon: Compass,    label: t('nav_plan'),      path: '/app/plan' },
+    { id: 'analisis',  Icon: ScanText,   label: t('nav_analisis'),  path: '/app/analisis' },
   ];
 
   const isActive = (path) =>
