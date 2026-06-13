@@ -113,3 +113,27 @@ exports.pagarCuota = async (req, res) => {
     res.status(500).json({ message: 'Error al pagar cuota' });
   }
 };
+
+exports.abonar = async (req, res) => {
+  try {
+    const debt = await Debt.findOne({ where: { id: req.params.id, user_id: req.userId } });
+    if (!debt) return res.status(404).json({ message: 'Deuda no encontrada' });
+
+    const monto = Number(req.body.monto);
+    if (isNaN(monto) || monto <= 0)
+      return res.status(400).json({ message: 'El monto debe ser mayor a 0' });
+
+    const nuevoPagado = parseFloat(debt.monto_pagado) + monto;
+    debt.monto_pagado = Math.min(nuevoPagado, parseFloat(debt.monto_total));
+
+    if (parseFloat(debt.monto_pagado) >= parseFloat(debt.monto_total)) {
+      debt.activa = false;
+    }
+
+    await debt.save();
+    res.json({ debt, liquidada: !debt.activa });
+  } catch (err) {
+    console.error('[debts.abonar]', err.message);
+    res.status(500).json({ message: 'Error al abonar' });
+  }
+};

@@ -69,6 +69,16 @@ export function FinanceProvider({ children }) {
     }
   };
 
+  const abonarDeuda = async (id, monto) => {
+    const res = await api.post(`/debts/${id}/abonar`, { monto });
+    if (res.data.liquidada) {
+      setDebts((prev) => prev.filter((d) => d.id !== id));
+    } else {
+      setDebts((prev) => prev.map((d) => (d.id === id ? res.data.debt : d)));
+    }
+    return res.data;
+  };
+
   // Derived calculations
   const totalServicios = services.reduce((sum, s) => sum + parseFloat(s.monto || 0), 0);
   const totalCuotas = debts.reduce((sum, d) => sum + parseFloat(d.cuota_mensual || 0), 0);
@@ -124,7 +134,7 @@ export function FinanceProvider({ children }) {
       services, debts, savings, goals, loadingData,
       fetchAll,
       addService, updateService, removeService,
-      addDebt, updateDebt, removeDebt, pagarCuota,
+      addDebt, updateDebt, removeDebt, pagarCuota, abonarDeuda,
       addSaving, updateSaving, removeSaving, abonarSaving,
       addGoal, updateGoal, removeGoal, abonarGoal,
       totalServicios, totalCuotas, totalDeuda,

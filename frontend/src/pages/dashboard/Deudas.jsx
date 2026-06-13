@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { useLang } from '../../context/LangContext';
 import ModalDeuda from '../../components/ModalDeuda';
+import ModalAbonoDeuda from '../../components/ModalAbonoDeuda';
 import {
-  CreditCard, PartyPopper, Lightbulb, Check,
+  CreditCard, PartyPopper, Lightbulb, Check, PiggyBank,
   Building2, Handshake, Home, Package,
 } from 'lucide-react';
 
@@ -22,6 +23,7 @@ export default function Deudas() {
   const [editando, setEditando] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [pagando, setPagando] = useState(null);
+  const [abonando, setAbonando] = useState(null);
 
   const maxMeses = debts.length
     ? Math.max(...debts.map((d) => {
@@ -127,6 +129,13 @@ export default function Deudas() {
                   >
                     {pagando === d.id ? '...' : <><Check size={13} strokeWidth={2.5} /> {t('deudas_pay')}</>}
                   </button>
+                  <button
+                    className="btn btn-o"
+                    style={{ fontSize: 11, padding: '5px 12px', gap: 5, borderColor: 'var(--amber)', color: 'var(--amber)' }}
+                    onClick={() => setAbonando(d)}
+                  >
+                    <PiggyBank size={13} strokeWidth={2.5} /> {t('deudas_abonar_btn')}
+                  </button>
                   <button className="btn btn-o" style={{ fontSize: 11, padding: '5px 12px' }} onClick={() => { setEditando(d); setShowModal(true); }}>{t('btn_edit')}</button>
                   <button className="btn btn-r" style={{ fontSize: 11, padding: '5px 12px' }} onClick={() => setConfirmDel(d.id)}>{t('btn_delete')}</button>
                 </div>
@@ -145,6 +154,10 @@ export default function Deudas() {
 
       {(showModal || editando) && (
         <ModalDeuda deuda={editando} onClose={() => { setShowModal(false); setEditando(null); }} />
+      )}
+
+      {abonando && (
+        <ModalAbonoDeuda deuda={abonando} onClose={() => setAbonando(null)} />
       )}
 
       {confirmDel && (
