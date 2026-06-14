@@ -6,19 +6,24 @@ const STORAGE_KEY = 'fl_seen_v';
 
 const FEATURES = [
   {
-    icon: '💰',
-    title: 'Deducciones salariales automáticas',
-    desc: 'AFP (2.87 %), SFS (3.04 %) e ISR calculados según los tramos DGII 2025.',
+    icon: '🤖',
+    title: 'Análisis de estado de cuenta con IA',
+    desc: 'Sube tu PDF bancario y la IA detecta en qué gastas, te da recomendaciones y guarda un historial de todos tus análisis.',
   },
   {
     icon: '📊',
-    title: 'Salario neto como base',
-    desc: 'Inicio, Plan y Ahorros ahora parten de tu sueldo neto, no del bruto.',
+    title: 'Comparación entre períodos',
+    desc: 'Selecciona 2 o 3 análisis del historial y la IA te dice si mejoraste, retrocediste o te mantuviste estable.',
   },
   {
-    icon: '⚡',
-    title: 'Widget en tiempo real en Perfil',
-    desc: 'Edita tu ingreso y ve al instante cuánto te queda tras impuestos.',
+    icon: '☀️',
+    title: 'Modo claro',
+    desc: 'Nuevo tema de colores claros. Cambia entre claro y oscuro desde el ícono ☀/🌙 en la barra lateral.',
+  },
+  {
+    icon: '📲',
+    title: 'Instalación mejorada en iPhone',
+    desc: 'Correcciones para que "Añadir a pantalla de inicio" aparezca correctamente en Safari de iOS.',
   },
 ];
 

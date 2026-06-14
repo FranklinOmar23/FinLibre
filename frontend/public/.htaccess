@@ -1,0 +1,33 @@
+# Activar módulo de headers
+<IfModule mod_headers.c>
+
+  # index.html y sw.js NUNCA se cachean en HTTP
+  # El browser siempre va al servidor a verificar si cambiaron
+  <FilesMatch "^(index\.html|sw\.js|workbox-.+\.js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Archivos con hash en el nombre (JS/CSS generados por Vite) → cache de 1 año
+  # Ejemplo: main.dK3f9aB2.js — el hash cambia con cada build, nunca hay stale
+  <FilesMatch "\.[0-9a-f]{8,}\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Imágenes y fuentes → cache de 30 días
+  <FilesMatch "\.(png|svg|ico|woff2|woff|ttf)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+
+</IfModule>
+
+# SPA: todas las rutas que no sean archivos → index.html
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  Options -MultiViews
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

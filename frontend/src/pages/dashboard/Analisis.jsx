@@ -1,12 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LangContext';
 import { LibFull } from '../../components/LibSVG';
+import { useToast, ToastContainer } from '../../components/Toast';
 import {
   FileText, UploadCloud, Sparkles, AlertTriangle,
-  RefreshCw, Lock, ScanText, TrendingUp, CalendarDays,
-  CheckCircle2, Zap, ShieldCheck,
+  RefreshCw, Lock, ScanText, TrendingUp, TrendingDown, Minus,
+  CalendarDays, CheckCircle2, Zap, ShieldCheck,
+  History, Trash2, ChevronRight, Check, GitCompare,
 } from 'lucide-react';
 
 const BAR_COLORS = [
@@ -17,15 +19,26 @@ const BAR_COLORS = [
 export default function Analisis() {
   const { user, updateUser } = useAuth();
   const { t } = useLang();
+  const { toasts, dismiss, toast } = useToast();
 
-  const [file, setFile]         = useState(null);
-  const [dragging, setDrag]     = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [paying, setPaying]     = useState(false);
-  const [error, setError]       = useState('');
-  const [result, setResult]     = useState(null);
-  const [justPaid, setJustPaid] = useState(false);
-  const inputRef                = useRef();
+  const [file, setFile]               = useState(null);
+  const [dragging, setDrag]           = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [paying, setPaying]           = useState(false);
+  const [error, setError]             = useState('');
+  const [result, setResult]           = useState(null);
+  const [justPaid, setJustPaid]       = useState(false);
+  const [historial, setHistorial]       = useState([]);
+  const [viewingItem, setViewingItem]   = useState(null);
+  const [compareMode, setCompareMode]   = useState(false);
+  const [selectedIds, setSelectedIds]   = useState([]);
+  const [comparing, setComparing]       = useState(false);
+  const [compareResult, setCompareResult] = useState(null);
+  const inputRef                        = useRef();
+
+  const loadHistorial = useCallback(() => {
+    api.get('analysis/history').then(({ data }) => setHistorial(data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Retorno exitoso de Stripe
@@ -52,7 +65,7 @@ export default function Analisis() {
       window.location.href = data.url;
     } catch (err) {
       setPaying(false);
-      alert(err.response?.data?.message || 'Error al iniciar el pago. Intenta de nuevo.');
+      toast.error(err.response?.data?.message || 'Error al iniciar el pago. Intenta de nuevo.');
     }
   };
 
@@ -86,8 +99,12 @@ export default function Analisis() {
       form.append('pdf', file);
       const { data } = await api.post('analysis', form, { timeout: 120000 });
       setResult(data);
+      loadHistorial();
+      toast.success('Análisis completado y guardado en el historial.');
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al analizar el PDF.');
+      const msg = err.response?.data?.message || 'Error al analizar el PDF.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -97,17 +114,68 @@ export default function Analisis() {
 
   const isPro = !!user?.analysis_pro;
 
+  // Cargar historial cuando el usuario es Pro
+  useEffect(() => {
+    if (isPro) loadHistorial();
+  }, [isPro, loadHistorial]);
+
+  const handleDeleteHistorial = async (id) => {
+    if (!window.confirm(t('historial_confirm_delete'))) return;
+    try {
+      await api.delete(`analysis/history/${id}`);
+      setHistorial((prev) => prev.filter((h) => h.id !== id));
+      if (viewingItem?.id === id) setViewingItem(null);
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+      toast.success(t('historial_delete') + ' exitoso.');
+    } catch {
+      toast.error('Error al eliminar el análisis.');
+    }
+  };
+
+  const toggleSelectItem = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : prev.length < 3 ? [...prev, id] : prev
+    );
+  };
+
+  const handleCompare = async () => {
+    setComparing(true);
+    try {
+      const { data } = await api.post('analysis/compare', { ids: selectedIds });
+      setCompareMode(false);
+      setSelectedIds([]);
+      setCompareResult(data); // se setea DESPUÉS de limpiar el modo, sin borrar el resultado
+      toast.success('Comparación completada.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al comparar. Intenta de nuevo.');
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const exitCompareMode = () => {
+    setCompareMode(false);
+    setSelectedIds([]);
+    setCompareResult(null);
+  };
+
+  const showingResult = result || viewingItem;
+
   return (
     <div className="view">
+      <ToastContainer toasts={toasts} dismiss={dismiss} />
       <div className="topbar">
         <div>
           <div className="page-title">{t('analisis_title')}</div>
           <div className="page-sub">{t('analisis_sub')}</div>
         </div>
-        {result && (
-          <button className="btn btn-ghost" onClick={reset}>
-            <RefreshCw size={15} style={{ marginRight: 6 }} />
-            {t('analisis_new')}
+        {(showingResult || compareResult) && (
+          <button className="btn btn-ghost" onClick={() => { reset(); setViewingItem(null); exitCompareMode(); }}>
+            {viewingItem || compareResult ? t('historial_back') : (
+              <><RefreshCw size={15} style={{ marginRight: 6 }} />{t('analisis_new')}</>
+            )}
           </button>
         )}
       </div>
@@ -115,9 +183,19 @@ export default function Analisis() {
       {/* Paywall — aparece si no es Pro */}
       {!isPro && <ProModal t={t} paying={paying} onPay={handlePay} justPaid={justPaid} />}
 
-      {isPro && loading && <LoadingAnalysis t={t} />}
+      {isPro && (loading || comparing) && <LoadingAnalysis t={t} comparing={comparing} />}
 
-      {isPro && !result && !loading && (
+      {/* Resultado de comparación */}
+      {isPro && !loading && !comparing && compareResult && (
+        <ComparisonResult result={compareResult} t={t} />
+      )}
+
+      {/* Resultado en vivo o desde historial */}
+      {isPro && !loading && !comparing && !compareResult && showingResult && (
+        <Results result={viewingItem || result} t={t} />
+      )}
+
+      {isPro && !result && !viewingItem && !compareResult && !loading && !comparing && (
         <div className="card" style={{ marginBottom: 16 }}>
 
           {/* 3-month tip */}
@@ -211,7 +289,21 @@ export default function Analisis() {
         </div>
       )}
 
-      {isPro && !loading && result && <Results result={result} t={t} />}
+      {/* Historial */}
+      {isPro && !result && !viewingItem && !compareResult && !loading && !comparing && (
+        <HistorialSection
+          historial={historial}
+          t={t}
+          onView={setViewingItem}
+          onDelete={handleDeleteHistorial}
+          compareMode={compareMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelectItem}
+          onToggleMode={() => { setCompareMode(m => !m); setSelectedIds([]); }}
+          onCompare={handleCompare}
+          comparing={comparing}
+        />
+      )}
     </div>
   );
 }
@@ -334,49 +426,428 @@ function ProModal({ t, paying, onPay, justPaid }) {
   );
 }
 
-function LoadingAnalysis({ t }) {
-  const steps = [
-    { Icon: ScanText,   label: t('analisis_step_reading') },
-    { Icon: TrendingUp, label: t('analisis_step_thinking') },
-    { Icon: Sparkles,   label: t('analisis_step_writing') },
-  ];
+function LoadingAnalysis({ t, comparing }) {
+  const [activeStep, setActiveStep] = useState(0);
+  const [done, setDone] = useState([]);
+
+  const steps = comparing
+    ? [
+        { Icon: GitCompare, label: t('comparar_periodo') + ' 1 vs 2…' },
+        { Icon: TrendingUp, label: t('analisis_step_thinking') },
+        { Icon: Sparkles,   label: t('analisis_step_writing') },
+      ]
+    : [
+        { Icon: ScanText,   label: t('analisis_step_reading') },
+        { Icon: TrendingUp, label: t('analisis_step_thinking') },
+        { Icon: Sparkles,   label: t('analisis_step_writing') },
+      ];
+
+  useEffect(() => {
+    const advance = (i) => {
+      if (i >= steps.length - 1) return;
+      const delay = i === 0 ? 2800 : 3500;
+      setTimeout(() => {
+        setDone(prev => [...prev, i]);
+        setActiveStep(i + 1);
+        advance(i + 1);
+      }, delay);
+    };
+    advance(0);
+  }, []);
+
   return (
-    <div className="card" style={{ textAlign: 'center', padding: '40px 24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }} className="pulse-anim">
-        <LibFull size={72} />
+    <div className="card slide-up" style={{ textAlign: 'center', padding: '44px 24px', overflow: 'hidden', position: 'relative' }}>
+      {/* Glow de fondo */}
+      <div style={{ position: 'absolute', top: -40, left: '50%', transform: 'translateX(-50%)', width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(29,158,117,.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+      {/* Lib flotando con glow */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20, position: 'relative' }}>
+        <div className="float-anim glow-green" style={{ borderRadius: '50%', padding: 8 }}>
+          <LibFull size={76} />
+        </div>
+        {/* Anillo giratorio */}
+        <div style={{
+          position: 'absolute', inset: -8, borderRadius: '50%',
+          border: '2px solid transparent',
+          borderTopColor: 'var(--green2)',
+          borderRightColor: 'rgba(29,158,117,.3)',
+          animation: 'spinRing 2s linear infinite',
+        }} />
       </div>
-      <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--text1)', marginBottom: 8 }}>
-        {t('analisis_analyzing')}
+
+      <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text1)', marginBottom: 6 }}>
+        {comparing ? t('comparar_analizando') : t('analisis_analyzing')}
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 28, lineHeight: 1.6, maxWidth: 300, margin: '0 auto 28px' }}>
-        {t('analisis_loading_desc')}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 260, margin: '0 auto' }}>
-        {steps.map(({ Icon, label }, i) => (
+
+      {/* Dots */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginBottom: 28 }}>
+        {[0, 1, 2].map(i => (
           <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 14px', borderRadius: 10,
-            background: 'var(--bg2)', border: '1px solid var(--border)',
-            color: 'var(--text2)', fontSize: 13,
-          }}>
-            <Icon size={15} style={{ color: 'var(--green2)', flexShrink: 0 }} />
-            {label}
-          </div>
+            width: 6, height: 6, borderRadius: '50%', background: 'var(--green2)',
+            animation: `dotScale 1.2s ease-in-out ${i * 0.2}s infinite`,
+          }} />
         ))}
+      </div>
+
+      {/* Steps */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 280, margin: '0 auto' }}>
+        {steps.map(({ Icon, label }, i) => {
+          const isDone   = done.includes(i);
+          const isActive = activeStep === i;
+          const isPending = !isDone && !isActive;
+          return (
+            <div
+              key={i}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '11px 14px', borderRadius: 11,
+                background: isDone   ? 'rgba(29,158,117,.1)'
+                          : isActive ? 'rgba(29,158,117,.07)'
+                          : 'var(--bg2)',
+                border: `1px solid ${isDone || isActive ? 'rgba(29,158,117,.3)' : 'var(--border)'}`,
+                color: isPending ? 'var(--text4)' : 'var(--text2)',
+                fontSize: 13,
+                transition: 'all .4s cubic-bezier(.4,0,.2,1)',
+                animation: isActive ? 'stepIn .35s ease both' : 'none',
+                transform: isActive ? 'scale(1.02)' : 'scale(1)',
+              }}
+            >
+              {isDone ? (
+                <CheckCircle2 size={15} style={{ color: 'var(--green2)', flexShrink: 0 }} />
+              ) : isActive ? (
+                <div style={{ width: 15, height: 15, flexShrink: 0, border: '2px solid var(--green2)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spinRing .8s linear infinite' }} />
+              ) : (
+                <Icon size={15} style={{ color: 'var(--text4)', flexShrink: 0 }} />
+              )}
+              <span style={{ fontWeight: isActive ? 600 : 400 }}>{label}</span>
+              {isActive && (
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
+                  {[0,1,2].map(d => (
+                    <div key={d} style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--green2)', animation: `dotScale 1s ease-in-out ${d * 0.15}s infinite` }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Barra de progreso falsa */}
+      <div style={{ maxWidth: 280, margin: '20px auto 0', height: 3, background: 'var(--bg3)', borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: 99, background: 'linear-gradient(90deg, var(--green), var(--green2))',
+          width: `${((activeStep + 1) / steps.length) * 100}%`,
+          transition: 'width 1s cubic-bezier(.4,0,.2,1)',
+          boxShadow: '0 0 8px rgba(29,158,117,.6)',
+        }} />
       </div>
     </div>
   );
 }
 
+function HistorialSection({ historial, t, onView, onDelete, compareMode, selectedIds, onToggleSelect, onToggleMode, onCompare, comparing }) {
+  if (historial.length === 0) return null;
+
+  const canCompare = selectedIds.length >= 2;
+
+  return (
+    <div className="card">
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: compareMode ? 8 : 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <History size={16} style={{ color: 'var(--green2)' }} />
+          <div className="sec-label">{t('historial_title')}</div>
+        </div>
+        {historial.length >= 2 && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5 }}
+            onClick={onToggleMode}
+          >
+            {compareMode ? t('comparar_cancelar') : (
+              <><GitCompare size={13} />{t('comparar_modo')}</>
+            )}
+          </button>
+        )}
+      </div>
+
+      {compareMode && (
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14, padding: '8px 12px', background: 'var(--bg2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+          {t('comparar_selecting')} <strong style={{ color: 'var(--text1)' }}>({selectedIds.length}/3)</strong>
+        </div>
+      )}
+
+      {/* Lista */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {historial.map((item, i) => {
+          const isSelected = selectedIds.includes(item.id);
+          const isDisabled = compareMode && selectedIds.length >= 3 && !isSelected;
+          const label = new Date(item.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+          const resumenCorto = item.resumen?.length > 75 ? item.resumen.slice(0, 75) + '…' : item.resumen;
+
+          return (
+            <div
+              key={item.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '12px 0',
+                borderBottom: i < historial.length - 1 ? '1px solid var(--border)' : 'none',
+                opacity: isDisabled ? 0.35 : 1,
+                transition: 'opacity .2s',
+              }}
+            >
+              {/* Checkbox en modo comparar */}
+              {compareMode && (
+                <div
+                  onClick={() => !isDisabled && onToggleSelect(item.id)}
+                  style={{
+                    width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                    border: `2px solid ${isSelected ? 'var(--green2)' : 'var(--border)'}`,
+                    background: isSelected ? 'var(--green2)' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: isDisabled ? 'default' : 'pointer',
+                    transition: 'all .15s',
+                  }}
+                >
+                  {isSelected && <Check size={13} color="#000" />}
+                </div>
+              )}
+
+              {/* Icono */}
+              <div style={{
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                background: isSelected ? 'rgba(29,158,117,.2)' : 'rgba(29,158,117,.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background .15s',
+              }}>
+                <FileText size={15} style={{ color: 'var(--green2)' }} />
+              </div>
+
+              {/* Info */}
+              <div
+                style={{ flex: 1, minWidth: 0, cursor: compareMode ? (isDisabled ? 'default' : 'pointer') : 'pointer' }}
+                onClick={() => compareMode ? (!isDisabled && onToggleSelect(item.id)) : onView(item)}
+              >
+                <div style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>
+                  {label}{item.filename ? ` · ${item.filename}` : ''}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {resumenCorto}
+                </div>
+              </div>
+
+              {/* Acciones (solo fuera de modo comparar) */}
+              {!compareMode && (
+                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                  <button className="btn btn-ghost" style={{ padding: '6px 8px', minWidth: 0 }} onClick={() => onView(item)}>
+                    <ChevronRight size={15} />
+                  </button>
+                  <button className="btn btn-ghost" style={{ padding: '6px 8px', minWidth: 0, color: 'var(--red)' }} onClick={() => onDelete(item.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Botón comparar */}
+      {compareMode && (
+        <button
+          className="btn btn-p"
+          style={{ width: '100%', marginTop: 16, opacity: canCompare ? 1 : 0.45 }}
+          onClick={onCompare}
+          disabled={!canCompare || comparing}
+        >
+          <GitCompare size={15} style={{ marginRight: 8 }} />
+          {comparing ? t('comparar_analizando') : `${t('comparar_btn')} (${selectedIds.length})`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ComparisonResult({ result, t }) {
+  const { tendencia, resumen, items = [], same_document } = result;
+  const cambios_categorias = parseJsonField(result.cambios_categorias);
+  const recomendaciones    = parseJsonField(result.recomendaciones);
+
+  // Caso especial: mismo documento
+  if (same_document) {
+    return (
+      <>
+        <div className="card" style={{ marginBottom: 12, textAlign: 'center', padding: '32px 24px' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🔁</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text1)', marginBottom: 8 }}>
+            Mismo estado de cuenta
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, margin: '0 0 16px' }}>{resumen}</p>
+          {items.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+              {items.map((it, i) => (
+                <div key={i} style={{ fontSize: 11, color: 'var(--text4)', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px' }}>
+                  {new Date(it.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {it.filename ? ` · ${it.filename}` : ''}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <LibFull size={20} />
+            <div className="sec-label">{t('comparar_recs')}</div>
+          </div>
+          {recomendaciones.map((rec, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 0', borderBottom: i < recomendaciones.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: 'rgba(29,158,117,.12)', color: 'var(--green2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{i + 1}</div>
+              <span style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55 }}>{rec}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  const cfg = {
+    mejora:     { label: t('comparar_tendencia_mejora'),    color: 'var(--green2)', bg: 'rgba(29,158,117,.12)', border: 'rgba(29,158,117,.3)', Icon: TrendingUp },
+    deterioro:  { label: t('comparar_tendencia_deterioro'), color: 'var(--red)',    bg: 'rgba(224,82,82,.1)',   border: 'rgba(224,82,82,.3)',   Icon: TrendingDown },
+    estable:    { label: t('comparar_tendencia_estable'),   color: '#5ba4e0',       bg: 'rgba(91,164,224,.1)', border: 'rgba(91,164,224,.3)', Icon: Minus },
+  }[tendencia] || { label: tendencia, color: 'var(--text2)', bg: 'var(--bg2)', border: 'var(--border)', Icon: Minus };
+
+  const { Icon } = cfg;
+
+  return (
+    <>
+      {/* Hero tendencia */}
+      <div className="card scale-in" style={{ marginBottom: 12, textAlign: 'center', border: `1px solid ${cfg.border}`, background: `${cfg.bg}` }}>
+        {/* Badge animado con bounce */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            background: cfg.bg, border: `1px solid ${cfg.border}`,
+            borderRadius: 99, padding: '10px 22px',
+            animation: 'bounceIn .55s cubic-bezier(.4,0,.2,1) both',
+          }}>
+            <Icon size={20} style={{ color: cfg.color }} />
+            <span style={{ fontWeight: 800, fontSize: 16, color: cfg.color, letterSpacing: '-.02em' }}>{cfg.label}</span>
+          </div>
+        </div>
+        <p className="slide-up" style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, margin: '0 0 16px', animationDelay: '.1s' }}>{resumen}</p>
+        {items.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {items.map((it, i) => (
+              <div key={i} style={{
+                fontSize: 11, color: 'var(--text4)', background: 'var(--bg)',
+                border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px',
+                animation: `slideUp .3s ease ${0.15 + i * 0.08}s both`,
+              }}>
+                {t('comparar_periodo')} {i + 1} · {new Date(it.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                {it.filename ? ` · ${it.filename}` : ''}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Cambios por categoría */}
+      {cambios_categorias.length > 0 && (
+        <div className="card slide-up" style={{ marginBottom: 12, animationDelay: '.12s' }}>
+          <div className="sec-label" style={{ marginBottom: 14 }}>{t('comparar_cambios')}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {cambios_categorias.map((cat, i) => {
+              const isGood = cat.cambio_pct <= 0;
+              const changeColor = isGood ? 'var(--green2)' : 'var(--red)';
+              const arrow = cat.cambio_pct > 0 ? '↑' : cat.cambio_pct < 0 ? '↓' : '→';
+              const barBefore = 100;
+              const barAfter  = cat.antes > 0 ? Math.min(100, (cat.despues / cat.antes) * 100) : 0;
+              return (
+                <div key={i} style={{
+                  padding: '12px 0',
+                  borderBottom: i < cambios_categorias.length - 1 ? '1px solid var(--border)' : 'none',
+                  animation: `slideUp .35s cubic-bezier(.4,0,.2,1) ${0.16 + i * 0.06}s both`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>{cat.emoji}</span>
+                    <span style={{ flex: 1, fontSize: 13, color: 'var(--text1)', fontWeight: 500 }}>{cat.nombre}</span>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>
+                        {Number(cat.antes).toLocaleString()} → {Number(cat.despues).toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: changeColor }}>
+                        {arrow} {Math.abs(cat.cambio_pct)}%
+                      </div>
+                    </div>
+                  </div>
+                  {/* Mini barra antes/después */}
+                  <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                    <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'var(--bg3)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: '100%', background: 'var(--border2)', borderRadius: 99 }} />
+                    </div>
+                    <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'var(--bg3)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${barAfter}%`, background: changeColor, borderRadius: 99, transition: `width 1s cubic-bezier(.4,0,.2,1) ${0.3 + i * 0.06}s`, boxShadow: `0 0 6px ${changeColor}88` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Recomendaciones */}
+      {recomendaciones.length > 0 && (
+        <div className="card slide-up" style={{ animationDelay: '.2s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <LibFull size={20} />
+            <div className="sec-label">{t('comparar_recs')}</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {recomendaciones.map((rec, i) => (
+              <div key={i} style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start',
+                padding: '12px 0',
+                borderBottom: i < recomendaciones.length - 1 ? '1px solid var(--border)' : 'none',
+                animation: `slideUp .35s ease ${0.25 + i * 0.07}s both`,
+              }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                  background: 'rgba(29,158,117,.12)', color: 'var(--green2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700,
+                }}>
+                  {i + 1}
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55 }}>{rec}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function parseJsonField(val, fallback = []) {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') { try { return JSON.parse(val); } catch { return fallback; } }
+  return fallback;
+}
+
 function Results({ result, t }) {
-  const { resumen, categorias = [], recomendaciones = [], alerta } = result;
-  const totalGasto = categorias.reduce((s, c) => s + Number(c.total), 0);
+  const { resumen, alerta } = result;
+  const categorias      = parseJsonField(result.categorias);
+  const recomendaciones = parseJsonField(result.recomendaciones);
+  const totalGasto      = categorias.reduce((s, c) => s + Number(c.total), 0);
+  const [barsVisible, setBarsVisible] = useState(false);
+  useEffect(() => { const id = setTimeout(() => setBarsVisible(true), 120); return () => clearTimeout(id); }, []);
 
   return (
     <>
       {/* Alert */}
       {alerta && (
-        <div className="card" style={{ marginBottom: 12, borderLeft: '3px solid var(--amber)', background: 'rgba(239,159,39,.06)' }}>
+        <div className="card slide-up" style={{ marginBottom: 12, borderLeft: '3px solid var(--amber)', background: 'rgba(239,159,39,.06)', animationDelay: '0s' }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <AlertTriangle size={16} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 2 }} />
             <div>
@@ -388,7 +859,7 @@ function Results({ result, t }) {
       )}
 
       {/* Summary hero */}
-      <div className="card hero-blue" style={{ marginBottom: 12 }}>
+      <div className="card hero-blue slide-up" style={{ marginBottom: 12, animationDelay: alerta ? '.08s' : '0s' }}>
         <div className="hero-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <LibFull size={18} />
           {t('analisis_resumen_title')}
@@ -398,40 +869,41 @@ function Results({ result, t }) {
 
       {/* Categories */}
       {categorias.length > 0 && (
-        <div className="card" style={{ marginBottom: 12 }}>
+        <div className="card slide-up" style={{ marginBottom: 12, animationDelay: '.14s' }}>
           <div className="sec-label" style={{ marginBottom: 16 }}>{t('analisis_cats_title')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {categorias.map((cat, i) => {
               const color = BAR_COLORS[i % BAR_COLORS.length];
               const pct = totalGasto > 0 ? Math.round((Number(cat.total) / totalGasto) * 100) : cat.porcentaje;
               return (
-                <div key={cat.nombre}>
+                <div key={cat.nombre} style={{ animation: `slideUp .35s cubic-bezier(.4,0,.2,1) ${0.18 + i * 0.06}s both` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
-                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                        background: `${color}22`,
+                        width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+                        background: `${color}22`, border: `1px solid ${color}44`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 18,
+                        fontSize: 18, transition: 'transform .2s',
                       }}>
                         {cat.emoji}
                       </div>
                       <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text1)' }}>{cat.nombre}</span>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', animation: `slideUp .3s ease ${0.2 + i * 0.06}s both` }}>
                         {Number(cat.total).toLocaleString()}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text4)' }}>{pct}%</div>
+                      <div style={{ fontSize: 12, color, fontWeight: 600 }}>{pct}%</div>
                     </div>
                   </div>
-                  <div style={{ height: 6, borderRadius: 99, background: 'var(--bg3)', overflow: 'hidden' }}>
+                  <div style={{ height: 7, borderRadius: 99, background: 'var(--bg3)', overflow: 'hidden' }}>
                     <div style={{
                       height: '100%',
-                      width: `${pct}%`,
-                      background: color,
+                      width: barsVisible ? `${pct}%` : '0%',
+                      background: `linear-gradient(90deg, ${color}cc, ${color})`,
                       borderRadius: 99,
-                      transition: 'width .7s ease',
+                      transition: `width 1s cubic-bezier(.4,0,.2,1) ${0.25 + i * 0.08}s`,
+                      boxShadow: `0 0 8px ${color}66`,
                     }} />
                   </div>
                 </div>
@@ -443,11 +915,9 @@ function Results({ result, t }) {
 
       {/* Recommendations */}
       {recomendaciones.length > 0 && (
-        <div className="card">
+        <div className="card slide-up" style={{ animationDelay: '.22s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <LibFull size={22} />
-            </div>
+            <LibFull size={22} />
             <div className="sec-label">{t('analisis_recs_title')}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -456,22 +926,21 @@ function Results({ result, t }) {
                 display: 'flex', gap: 12, alignItems: 'flex-start',
                 padding: '14px 0',
                 borderBottom: i < recomendaciones.length - 1 ? '1px solid var(--border)' : 'none',
+                animation: `slideUp .35s cubic-bezier(.4,0,.2,1) ${0.28 + i * 0.07}s both`,
               }}>
                 <div style={{
-                  width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+                  width: 28, height: 28, borderRadius: 9, flexShrink: 0,
                   background: 'rgba(29,158,117,.12)', color: 'var(--green2)',
+                  border: '1px solid rgba(29,158,117,.2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 12, fontWeight: 700,
+                  animation: `popIn .4s cubic-bezier(.4,0,.2,1) ${0.3 + i * 0.07}s both`,
                 }}>
                   {i + 1}
                 </div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text1)', marginBottom: 3 }}>
-                    {rec.titulo}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55 }}>
-                    {rec.detalle}
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text1)', marginBottom: 3 }}>{rec.titulo}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55 }}>{rec.detalle}</div>
                 </div>
               </div>
             ))}

@@ -13,16 +13,28 @@ window.addEventListener('beforeinstallprompt', (e) => {
   window.dispatchEvent(new CustomEvent('pwaInstallReady'));
 });
 
-// Cuando el service worker nuevo toma control → recargar para servir la versión nueva.
-// Esto dispara el popup de novedades si APP_VERSION fue subida.
 if ('serviceWorker' in navigator) {
   let reloading = false;
+
+  // Cuando el SW nuevo toma control → recargar para servir el código nuevo
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!reloading) {
       reloading = true;
       window.location.reload();
     }
   });
+
+  // Revisar actualizaciones al volver a la pestaña (el caso más común en mobile)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      navigator.serviceWorker.ready.then(reg => reg.update());
+    }
+  });
+
+  // Revisión cada hora por si el usuario deja la app abierta mucho tiempo
+  setInterval(() => {
+    navigator.serviceWorker.ready.then(reg => reg.update());
+  }, 60 * 60 * 1000);
 }
 
 createRoot(document.getElementById('root')).render(

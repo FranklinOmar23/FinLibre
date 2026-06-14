@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useFinance } from '../../context/FinanceContext';
 import { useLang } from '../../context/LangContext';
+import { useTheme } from '../../context/ThemeContext';
 import { LibSm } from '../../components/LibSVG';
 import ChatBot from '../../components/ChatBot';
 import LibTour from '../../components/LibTour';
@@ -10,11 +11,12 @@ import LibWhatsNew from '../../components/LibWhatsNew';
 import LibDonate from '../../components/LibDonate';
 import IOSInstallModal from '../../components/IOSInstallModal';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
-import { Home, Receipt, CreditCard, PiggyBank, Compass, UserCircle, Download, ScanText } from 'lucide-react';
+import { Home, Receipt, CreditCard, PiggyBank, Compass, UserCircle, Download, ScanText, Sun, Moon } from 'lucide-react';
 
 export default function Layout() {
   const { fetchAll } = useFinance();
   const { t } = useLang();
+  const { theme, toggleTheme } = useTheme();
   const nav = useNavigate();
   const loc = useLocation();
   const { canInstall, isIOS, promptInstall } = usePWAInstall();
@@ -56,6 +58,15 @@ export default function Layout() {
           </button>
         ))}
         <div className="sidebar-spacer" />
+        <button
+          className="nav-btn"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? t('theme_light') : t('theme_dark')}
+          style={{ color: theme === 'dark' ? 'var(--amber)' : 'var(--blue)' }}
+        >
+          {theme === 'dark' ? <Sun size={20} strokeWidth={1.8} /> : <Moon size={20} strokeWidth={1.8} />}
+          <span className="nav-tip">{theme === 'dark' ? t('theme_light') : t('theme_dark')}</span>
+        </button>
         {canInstall && (
           <button
             className="nav-btn"
@@ -104,6 +115,14 @@ export default function Layout() {
         >
           <UserCircle size={22} strokeWidth={isActive('/app/perfil') ? 2.5 : 1.8} />
           {t('nav_perfil')}
+        </button>
+        <button
+          className="mob-btn"
+          onClick={toggleTheme}
+          style={{ color: theme === 'dark' ? 'var(--amber)' : 'var(--blue)' }}
+        >
+          {theme === 'dark' ? <Sun size={22} strokeWidth={1.8} /> : <Moon size={22} strokeWidth={1.8} />}
+          {theme === 'dark' ? t('theme_light') : t('theme_dark')}
         </button>
         {canInstall && (
           <button className="mob-btn" onClick={handleInstall} style={{ color: 'var(--green2)' }}>

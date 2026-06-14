@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { LangProvider } from './context/LangContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 import Splash         from './pages/auth/Splash';
 import Login          from './pages/auth/Login';
@@ -70,13 +71,15 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <LangProvider>
-          <FinanceProvider>
-            <AppRoutes />
-          </FinanceProvider>
-        </LangProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <LangProvider>
+            <FinanceProvider>
+              <AppRoutes />
+            </FinanceProvider>
+          </LangProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
